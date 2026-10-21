@@ -1,0 +1,42 @@
+{
+	"geode": "4.0.0",
+	"gd": {
+		"win": "2.2074",
+		"android": "2.2074",
+		"mac": "2.2074",
+		"ios": "2.2074"
+	},
+	"version": "v0.1.0",
+	"id": "4561277",
+	"name": "AI Decorator",
+	"developer": "TheDaek",
+	"description": "Prueba basica: un boton en el editor que genera un nivel simple, de forma local o pidiendolo a un servidor (Termux/PC).",
+	"settings": {
+		"mode": {
+			"type": "string",
+			"name": "Modo",
+			"description": "local = genera dentro del mod sin red. server = pide el nivel al servidor Python (Termux en el movil, o tu PC).",
+			"default": "local",
+			"one-of": ["local", "server"]
+		},
+		"server-url": {
+			"type": "string",
+			"name": "URL del servidor",
+			"description": "Para Termux: http://127.0.0.1:8765/generate. Para PC: http://IP_DE_TU_PC:8765/generate",
+			"default": "http://127.0.0.1:8765/generate"
+		},
+		"prompt": {
+			"type": "string",
+			"name": "Prompt",
+			"description": "Lo que se le envia a la IA en modo server.",
+			"default": "nivel basico de cubo, 20 segundos"
+		},
+		"sections": {
+			"type": "int",
+			"name": "Secciones (modo local)",
+			"default": 8,
+			"min": 1,
+			"max": 40
+		}
+	}
+}
