@@ -1,3 +1,4 @@
+
 name: Build Geode mod
 
 on:
@@ -29,6 +30,7 @@ jobs:
       - name: Build the mod
         uses: geode-sdk/build-geode-mod@main
         with:
+          sdk: nightly
           combine: true
           target: ${{ matrix.config.target }}
 
@@ -45,3 +47,4 @@ jobs:
         with:
           name: Build Output
           path: ${{ steps.build.outputs.build-output }}
+          
