@@ -20,17 +20,19 @@
 			"one-of": ["local", "server"]
 		},
 		"server-url": {
-			"type": "string",
-			"name": "URL del servidor",
-			"description": "Para Termux: http://127.0.0.1:8765/generate. Para PC: http://IP_DE_TU_PC:8765/generate",
-			"default": "http://127.0.0.1:8765/generate"
-		},
-		"prompt": {
-			"type": "string",
-			"name": "Prompt",
-			"description": "Lo que se le envia a la IA en modo server.",
-			"default": "nivel basico de cubo, 20 segundos"
-		},
+	"type": "string",
+	"name": "URL del servidor",
+	"description": "Para Termux: http://127.0.0.1:8765/generate. Para PC: http://IP_DE_TU_PC:8765/generate",
+	"default": "http://192.168.18.23:8765/generate",
+	"filter": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/.:-_"
+},
+"prompt": {
+	"type": "string",
+	"name": "Prompt",
+	"description": "Lo que se le envia a la IA en modo server.",
+	"default": "nivel basico de cubo, 20 segundos",
+	"filter": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ,.:-_"
+},
 		"sections": {
 			"type": "int",
 			"name": "Secciones (modo local)",
