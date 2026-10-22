@@ -1,6 +1,7 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/EditorUI.hpp>
 #include <Geode/utils/web.hpp>
+#include <Geode/utils/async.hpp>
 
 using namespace geode::prelude;
 
@@ -49,7 +50,7 @@ static std::string makeLocalLevel(int sections) {
 
 class $modify(AIEditorUI, EditorUI) {
     struct Fields {
-        EventListener<web::WebTask> m_listener;
+        async::TaskHolder<web::WebResponse> m_listener;
     };
 
     bool init(LevelEditorLayer* lel) {
@@ -93,24 +94,24 @@ class $modify(AIEditorUI, EditorUI) {
 
         Notification::create("Pidiendo nivel a la IA...", NotificationIcon::Loading)->show();
 
-        m_fields->m_listener.bind([this](web::WebTask::Event* e) {
-            if (auto res = e->getValue()) {
-                if (res->ok()) {
-                    this->placeObjects(res->string().unwrapOr(""));
-                } else {
-                    Notification::create(
-                        fmt::format("Error del servidor: {}", res->code()),
-                        NotificationIcon::Error
-                    )->show();
-                }
-            } else if (e->isCancelled()) {
-                Notification::create("Peticion cancelada", NotificationIcon::Error)->show();
-            }
-        });
-
         auto req = web::WebRequest();
         req.bodyString(prompt);
         req.timeout(std::chrono::seconds(60));
-        m_fields->m_listener.setFilter(req.post(url));
+
+        // Geode 5: se lanza la peticion con un TaskHolder; el callback corre en el hilo principal.
+        m_fields->m_listener.spawn(
+            "ai-decorator-request",
+            req.post(url),
+            [this](web::WebResponse res) {
+                if (res.ok()) {
+                    this->placeObjects(res.string().unwrapOr(""));
+                } else {
+                    Notification::create(
+                        fmt::format("Error del servidor: {}", res.code()),
+                        NotificationIcon::Error
+                    )->show();
+                }
+            }
+        );
     }
 };
