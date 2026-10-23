@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-Servidor de prueba de DecoMind AI (v0.2).
+Servidor de prueba de DecoMind AI (v0.3).
 
 Corre en Termux o en un PC. Sin dependencias externas.
 
-Peticion del mod (POST):
+Soporta tanto el formato estructurado (MODE / CONTEXT / LEVEL / PROMPT)
+como el formato simple de 2 lineas:
     linea 1: id del modo (layout, deco, layout_deco, triggers, ...)
     resto  : el texto que escribio el usuario
 
@@ -75,17 +76,38 @@ def seconds_from(prompt: str) -> int:
     return 20
 
 
+def parse_request_body(body: str):
+    """Extrae (mode, prompt, context) tanto del formato clave:valor como del formato de 2 lineas."""
+    lines = [line.strip() for line in body.splitlines() if line.strip()]
+    if not lines:
+        return "deco", "", ""
+    if any(line.startswith("MODE:") or line.startswith("PROMPT:") for line in lines):
+        mode = "deco"
+        prompt = ""
+        ctx = ""
+        for line in lines:
+            if line.startswith("MODE:"):
+                mode = line[5:].strip()
+            elif line.startswith("CONTEXT:"):
+                ctx = line[8:].strip()
+            elif line.startswith("PROMPT:"):
+                prompt = line[7:].strip()
+        return mode, prompt, ctx
+    first, _, rest = body.partition("\n")
+    return first.strip(), rest.strip(), ""
+
+
 def handle(mode: str, prompt: str):
     """Devuelve (mensaje, objetos). Aqui se conectara la IA real."""
     if mode in ("layout", "layout_deco"):
         secs = seconds_from(prompt)
         objs = simple_layout(secs)
-        msg = f"[prueba] Modo {mode}: layout simple de {secs}s para: {prompt}"
+        msg = f"[prueba] Modo {mode}: layout simple de {secs}s generado para: {prompt}"
         return msg, objs
     if mode == "ideas":
         return ("[prueba] Idea: alterna secciones calmas y rapidas, y refuerza "
-                "los cambios de ritmo con color y pulsos."), ""
-    return f"[prueba] Modo {mode} recibido: aun no hay IA conectada. Peticion: {prompt}", ""
+                "los cambios de ritmo con contraste de color y pulsos suaves."), ""
+    return f"[prueba] Modo {mode} recibido (proveedor IA pendiente de configurar). Peticion: {prompt}", ""
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -100,8 +122,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length).decode("utf-8", errors="replace")
-        first, _, rest = body.partition("\n")
-        mode, prompt = first.strip(), rest.strip()
+        mode, prompt, _ctx = parse_request_body(body)
         print(f"[peticion] modo={mode!r} prompt={prompt!r}")
 
         if not take_request():
@@ -119,7 +140,9 @@ class Handler(BaseHTTPRequestHandler):
         print(f"[ok] usadas hoy: {_state['used']}/{DAILY_LIMIT}")
 
     def do_GET(self):
-        self._send("DecoMind AI server OK")
+        today = datetime.date.today().isoformat()
+        used = _state["used"] if _state["day"] == today else 0
+        self._send(f"MSG:DecoMind AI server OK\nUSED:{used}\nLIMIT:{DAILY_LIMIT}\n")
 
 
 if __name__ == "__main__":
