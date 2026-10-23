@@ -6,36 +6,29 @@
 		"mac": "2.2081",
 		"ios": "2.2081"
 	},
-	"version": "v0.1.0",
-	"id": "4561277",
-	"name": "AI Decorator",
-	"developer": "TheDaek",
-	"description": "Prueba basica: un boton en el editor que genera un nivel simple, de forma local o pidiendolo a un servidor (Termux/PC).",
+	"version": "v0.2.0",
+	"id": "tunombre.decomind-ai",
+	"name": "DecoMind AI",
+	"developer": "TuNombre",
+	"description": "Tu aliado con IA en el editor: menu con modos (layout, deco, triggers...), chat y resultados.",
 	"settings": {
 		"mode": {
 			"type": "string",
-			"name": "Modo",
-			"description": "local = genera dentro del mod sin red. server = pide el nivel al servidor Python (Termux en el movil, o tu PC).",
+			"name": "Origen",
+			"description": "local = genera dentro del mod sin red (prueba). server = pide el nivel al servidor Python (Termux u otro celular/PC).",
 			"default": "local",
 			"one-of": ["local", "server"]
 		},
 		"server-url": {
-	"type": "string",
-	"name": "URL del servidor",
-	"description": "Para Termux: http://127.0.0.1:8765/generate. Para PC: http://IP_DE_TU_PC:8765/generate",
-	"default": "http://192.168.18.23:8765/generate",
-	"filter": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/.:-_"
-},
-"prompt": {
-	"type": "string",
-	"name": "Prompt",
-	"description": "Lo que se le envia a la IA en modo server.",
-	"default": "nivel basico de cubo, 20 segundos",
-	"filter": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ,.:-_"
-},
+			"type": "string",
+			"name": "URL del servidor",
+			"description": "Ejemplo Termux: http://127.0.0.1:8765/generate. Otro celular o PC: http://IP:8765/generate",
+			"default": "http://127.0.0.1:8765/generate",
+			"filter": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/.:-_"
+		},
 		"sections": {
 			"type": "int",
-			"name": "Secciones (modo local)",
+			"name": "Secciones (origen local)",
 			"default": 8,
 			"min": 1,
 			"max": 40
