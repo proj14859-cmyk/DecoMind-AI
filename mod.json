@@ -10,7 +10,7 @@
 	"id": "thedaek.decomind-ai",
 	"name": "DecoMind-AI",
 	"developer": "TheDaek",
-	"description": "Tu aliado con IA en el editor: menu con modos (layout, deco, triggers...), chat y resultados.",
+	"description": "asistente de IA para el editor de gd",
 	"settings": {
 		"mode": {
 			"type": "string",
