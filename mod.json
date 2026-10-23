@@ -7,7 +7,7 @@
 		"ios": "2.2081"
 	},
 	"version": "v0.2.0",
-	"id": "DecoMind-AI",
+	"id": "thedaek.decomind-ai",
 	"name": "DecoMind-AI",
 	"developer": "TheDaek",
 	"description": "Tu aliado con IA en el editor: menu con modos (layout, deco, triggers...), chat y resultados.",
