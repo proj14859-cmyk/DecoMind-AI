@@ -1,41 +1,50 @@
 #!/usr/bin/env python3
 """
-Servidor de prueba para AI Decorator.
+Servidor de prueba de DecoMind AI (v0.2).
 
-Corre en Termux (movil) o en tu PC. El mod hace un POST con el prompt en el
-cuerpo y espera como respuesta una cadena de objetos de GD ("1,8,2,300,3,15;...").
+Corre en Termux o en un PC. Sin dependencias externas.
 
-Sin dependencias externas (solo libreria estandar de Python 3).
+Peticion del mod (POST):
+    linea 1: id del modo (layout, deco, layout_deco, triggers, ...)
+    resto  : el texto que escribio el usuario
+
+Respuesta (texto plano, una clave por linea):
+    MSG:<texto que se muestra en el panel de resultado>
+    USED:<peticiones usadas hoy>
+    LIMIT:<limite diario>
+    OBJ:<objetos en formato GD, opcional>
 
 Uso:
-    python server.py            # escucha en 0.0.0.0:8765
+    python server.py            # puerto 8765
     python server.py 9000       # otro puerto
-
-Mas adelante, en generate_level(), se puede reemplazar la logica de reglas por
-una llamada a un LLM con tool calling.
+    DAILY_LIMIT=50 python server.py
 """
+import datetime
+import os
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8765
+DAILY_LIMIT = int(os.environ.get("DAILY_LIMIT", "20"))
+
+_state = {"day": None, "used": 0}
 
 
-def generate_level(prompt: str) -> str:
-    """Devuelve objetos en formato GD. Por ahora usa reglas simples.
+def take_request() -> bool:
+    """Cuenta una peticion del dia. False si ya se alcanzo el limite."""
+    today = datetime.date.today().isoformat()
+    if _state["day"] != today:
+        _state["day"] = today
+        _state["used"] = 0
+    if _state["used"] >= DAILY_LIMIT:
+        return False
+    _state["used"] += 1
+    return True
 
-    Formato: "1,<id>,2,<x>,3,<y>;"   id 1 = bloque, id 8 = pico.
-    Un bloque mide 30 unidades; y = 15 es el suelo.
-    """
-    text = prompt.lower()
 
-    # Duracion aproximada: "20 segundos" -> mas o menos 1 seccion cada 2 s
-    seconds = 20
-    for word in text.replace(",", " ").split():
-        if word.isdigit():
-            seconds = max(5, min(int(word), 120))
-            break
+def simple_layout(seconds: int) -> str:
+    """Layout de prueba. Formato GD: 1,<id>,2,<x>,3,<y>;  (1 = bloque, 8 = pico)."""
     sections = max(2, seconds // 2)
-
     out = []
     x = 300
     for i in range(sections):
@@ -59,28 +68,61 @@ def generate_level(prompt: str) -> str:
     return "".join(out)
 
 
+def seconds_from(prompt: str) -> int:
+    for word in prompt.lower().replace(",", " ").split():
+        if word.isdigit():
+            return max(5, min(int(word), 120))
+    return 20
+
+
+def handle(mode: str, prompt: str):
+    """Devuelve (mensaje, objetos). Aqui se conectara la IA real."""
+    if mode in ("layout", "layout_deco"):
+        secs = seconds_from(prompt)
+        objs = simple_layout(secs)
+        msg = f"[prueba] Modo {mode}: layout simple de {secs}s para: {prompt}"
+        return msg, objs
+    if mode == "ideas":
+        return ("[prueba] Idea: alterna secciones calmas y rapidas, y refuerza "
+                "los cambios de ritmo con color y pulsos."), ""
+    return f"[prueba] Modo {mode} recibido: aun no hay IA conectada. Peticion: {prompt}", ""
+
+
 class Handler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        length = int(self.headers.get("Content-Length", 0))
-        prompt = self.rfile.read(length).decode("utf-8", errors="replace")
-        print(f"[prompt] {prompt!r}")
-        level = generate_level(prompt)
-        data = level.encode("utf-8")
+    def _send(self, text: str):
+        data = text.encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
-        print(f"[ok] {len(data)} bytes enviados")
+
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length).decode("utf-8", errors="replace")
+        first, _, rest = body.partition("\n")
+        mode, prompt = first.strip(), rest.strip()
+        print(f"[peticion] modo={mode!r} prompt={prompt!r}")
+
+        if not take_request():
+            reply = (f"MSG:Limite diario alcanzado ({DAILY_LIMIT}). Vuelve manana.\n"
+                     f"USED:{_state['used']}\nLIMIT:{DAILY_LIMIT}\n")
+            self._send(reply)
+            return
+
+        msg, objs = handle(mode, prompt)
+        msg = msg.replace("\n", " ")
+        reply = f"MSG:{msg}\nUSED:{_state['used']}\nLIMIT:{DAILY_LIMIT}\n"
+        if objs:
+            reply += f"OBJ:{objs}\n"
+        self._send(reply)
+        print(f"[ok] usadas hoy: {_state['used']}/{DAILY_LIMIT}")
 
     def do_GET(self):
-        data = b"AI Decorator server OK"
-        self.send_response(200)
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
+        self._send("DecoMind AI server OK")
 
 
 if __name__ == "__main__":
-    print(f"Escuchando en http://0.0.0.0:{PORT}/generate  (Ctrl+C para salir)")
+    print(f"DecoMind AI escuchando en http://0.0.0.0:{PORT}/generate "
+          f"(limite diario {DAILY_LIMIT}). Ctrl+C para salir.")
     HTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
