@@ -6,11 +6,16 @@
 		"mac": "2.2081",
 		"ios": "2.2081"
 	},
-	"version": "v0.2.0",
+	"version": "v0.3.0",
 	"id": "thedaek.decomind-ai",
 	"name": "DecoMind-AI",
 	"developer": "TheDaek",
-	"description": "asistente de IA para el editor de gd",
+	"description": "Asistente de IA interactivo para el editor de Geometry Dash",
+	"resources": {
+		"sprites": [
+			"resources/*.png"
+		]
+	},
 	"settings": {
 		"mode": {
 			"type": "string",
