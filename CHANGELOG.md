@@ -5,6 +5,8 @@ Todas las modificaciones notables realizadas en este proyecto están documentada
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
+## [0.3.0] - 2026-10-24
+- soporte para proveedores de AI mediante Api
 
 ## [0.3.0] - 2026-10-23
 
