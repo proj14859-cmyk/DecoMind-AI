@@ -1,0 +1,42 @@
+{
+	"geode": "5.11.2",
+	"gd": {
+		"win": "2.2081",
+		"android": "2.2081",
+		"mac": "2.2081",
+		"ios": "2.2081"
+	},
+	"version": "v0.3.12",
+	"id": "thedaek.decomind-ai",
+	"name": "DecoMind-AI",
+	"developer": "TheDaek",
+	"description": "Asistente de IA interactivo para el editor de Geometry Dash",
+	"resources": {
+		"sprites": [
+			"resources/*.png"
+		]
+	},
+	"settings": {
+		"mode": {
+			"type": "string",
+			"name": "Origen",
+			"description": "local = genera dentro del mod sin red (prueba). server = pide el nivel al servidor Python (Termux u otro celular/PC).",
+			"default": "local",
+			"one-of": ["local", "server"]
+		},
+		"server-url": {
+			"type": "string",
+			"name": "URL del servidor",
+			"description": "Ejemplo Termux: http://127.0.0.1:8765/generate. Otro celular o PC: http://IP:8765/generate",
+			"default": "http://127.0.0.1:8765/generate",
+			"filter": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/.:-_"
+		},
+		"sections": {
+			"type": "int",
+			"name": "Secciones (origen local)",
+			"default": 8,
+			"min": 1,
+			"max": 40
+		}
+	}
+}
