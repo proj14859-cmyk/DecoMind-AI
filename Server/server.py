@@ -28,6 +28,17 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from mod_python_api import (ApiReply, DailyQuota, format_reply, get_provider,
                             parse_request_body)
 
+def _load_env():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if os.path.isfile(path):
+        for line in open(path, encoding="utf-8"):
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, _, v = line.partition("=")
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+
+_load_env()
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8765
 DAILY_LIMIT = int(os.environ.get("DAILY_LIMIT", "20"))
 
