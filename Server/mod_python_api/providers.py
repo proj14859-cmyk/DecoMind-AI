@@ -84,6 +84,7 @@ def register_provider(name: str, cls) -> None:
 
 
 def get_provider(name: str = "") -> Provider:
+    from . import groq_provider  # noqa: F401  (registra "groq")
     name = (name or os.environ.get("DECOMIND_PROVIDER", "stub")).strip().lower()
     if name not in _REGISTRY:
         print(f"[aviso] proveedor '{name}' no existe; uso 'stub'. Disponibles: {', '.join(_REGISTRY)}")
