@@ -1,0 +1,59 @@
+{
+  "_nota": "IDs de objetos de GD de uso comun. Si alguno no coincide en tu version del juego, corrigelo aqui. El catalogo completo del juego se genera con el comando /catalogo del chat del mod.",
+  "entries": [
+    {"id": 1,    "cat": "solid",   "name": "bloque basico"},
+
+    {"id": 8,    "cat": "hazard",  "name": "pico"},
+    {"id": 39,   "cat": "hazard",  "name": "pico pequeno"},
+    {"id": 103,  "cat": "hazard",  "name": "pico mini"},
+    {"id": 392,  "cat": "hazard",  "name": "pico minimo"},
+    {"id": 9,    "cat": "hazard",  "name": "pinchos de suelo"},
+
+    {"id": 12,   "cat": "portal",  "name": "portal cubo"},
+    {"id": 13,   "cat": "portal",  "name": "portal nave"},
+    {"id": 47,   "cat": "portal",  "name": "portal bola"},
+    {"id": 111,  "cat": "portal",  "name": "portal ufo"},
+    {"id": 660,  "cat": "portal",  "name": "portal wave"},
+    {"id": 745,  "cat": "portal",  "name": "portal robot"},
+    {"id": 1331, "cat": "portal",  "name": "portal spider"},
+    {"id": 10,   "cat": "portal",  "name": "portal gravedad normal"},
+    {"id": 11,   "cat": "portal",  "name": "portal gravedad invertida"},
+    {"id": 45,   "cat": "portal",  "name": "portal espejo activar"},
+    {"id": 46,   "cat": "portal",  "name": "portal espejo desactivar"},
+    {"id": 99,   "cat": "portal",  "name": "portal tamano normal"},
+    {"id": 101,  "cat": "portal",  "name": "portal tamano mini"},
+    {"id": 286,  "cat": "portal",  "name": "portal dual"},
+    {"id": 287,  "cat": "portal",  "name": "portal dual desactivar"},
+
+    {"id": 200,  "cat": "speed",   "name": "velocidad 0.5x"},
+    {"id": 201,  "cat": "speed",   "name": "velocidad 1x"},
+    {"id": 202,  "cat": "speed",   "name": "velocidad 2x"},
+    {"id": 203,  "cat": "speed",   "name": "velocidad 3x"},
+    {"id": 1334, "cat": "speed",   "name": "velocidad 4x"},
+
+    {"id": 35,   "cat": "pad",     "name": "pad amarillo"},
+    {"id": 67,   "cat": "pad",     "name": "pad azul (gravedad)"},
+    {"id": 140,  "cat": "pad",     "name": "pad rosa"},
+    {"id": 1332, "cat": "pad",     "name": "pad rojo"},
+
+    {"id": 36,   "cat": "orb",     "name": "orbe amarillo"},
+    {"id": 84,   "cat": "orb",     "name": "orbe azul (gravedad)"},
+    {"id": 141,  "cat": "orb",     "name": "orbe rosa"},
+    {"id": 1022, "cat": "orb",     "name": "orbe verde"},
+    {"id": 1330, "cat": "orb",     "name": "orbe negro"},
+    {"id": 1333, "cat": "orb",     "name": "orbe rojo"},
+    {"id": 1704, "cat": "orb",     "name": "orbe dash verde"},
+    {"id": 1751, "cat": "orb",     "name": "orbe dash rosa"},
+
+    {"id": 899,  "cat": "trigger", "name": "trigger Color"},
+    {"id": 901,  "cat": "trigger", "name": "trigger Move"},
+    {"id": 1006, "cat": "trigger", "name": "trigger Pulse"},
+    {"id": 1007, "cat": "trigger", "name": "trigger Alpha"},
+    {"id": 1049, "cat": "trigger", "name": "trigger Toggle"},
+    {"id": 1346, "cat": "trigger", "name": "trigger Rotate"},
+    {"id": 2067, "cat": "trigger", "name": "trigger Scale"},
+    {"id": 1347, "cat": "trigger", "name": "trigger Follow"},
+    {"id": 1268, "cat": "trigger", "name": "trigger Spawn"},
+    {"id": 1616, "cat": "trigger", "name": "trigger Stop"}
+  ]
+}

@@ -52,7 +52,7 @@ public:
 
     // Generador local de prueba (sin conexion a servidor) adaptado por modo
     static std::string generateLocalDemoObjects(std::string const& modeId, int sections) {
-        if (modeId == "ideas") return "";
+        if (modeId == "ideas" || modeId == "estructurar") return "";
 
         std::string s;
         auto obj = [&](int id, int x, int y) {
@@ -61,7 +61,7 @@ public:
 
         int x = 300;
         for (int i = 0; i < sections; ++i) {
-            if (modeId == "deco" || modeId == "efectos") {
+            if (modeId == "deco" || modeId == "efectos" || modeId == "transiciones" || modeId == "triggers") {
                 // Objetos decorativos en altura sin colisionar en el suelo
                 obj(1, x, 105 + (i % 3) * 30);
                 obj(1, x + 30, 135);

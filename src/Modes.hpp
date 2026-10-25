@@ -44,10 +44,7 @@ static const ModeInfo MODES[9] = {
         "tu nivel de forma inteligente.",
         "Ordena grupos, capas del editor (Z-Layer / Z-Order) y canales de color sin alterar la jugabilidad.",
         "Agrupa las estructuras del primer bloque y ordena las capas de fondo y frente",
-        "MODO ESTRUCTURAR. Analiza el nivel indicado (grupos, capas, canales de color, triggers, secciones) "
-        "y organizalo: agrupa objetos relacionados, ordena capas, elimina triggers redundantes y libera IDs "
-        "de grupo sin usar. No cambies la jugabilidad (colisiones, hitboxes, tiempos). Responde con un plan "
-        "breve y despues con las operaciones a realizar.",
+        "MODO ESTRUCTURAR. Objetivo: ordenar el nivel (grupos, capas Z, canales de color, triggers redundantes) sin tocar la jugabilidad. Requiere leer el nivel; si no puedes verlo, no inventes: explica el plan por pasos y no coloques objetos.",
         ccc3(0x01, 0x2e, 0x3c),
         ccc3(0x01, 0xd3, 0xae)
     },
@@ -62,9 +59,7 @@ static const ModeInfo MODES[9] = {
         "la jugabilidad del nivel.",
         "Construye secciones jugables con saltos, portales, pads y orbes equilibrados y sincronizados.",
         "Crea un layout de cubo y nave de 20 segundos con ritmo medio",
-        "MODO LAYOUT. Crea o rehaz SOLO la jugabilidad (bloques, picos, portales, pads, aros) con un ritmo "
-        "coherente, para el modo de juego pedido. Respeta distancias y alturas superables, evita secciones "
-        "imposibles y no anadas decoracion. Verifica que cada salto sea posible.",
+        "MODO LAYOUT. Objetivo: crear SOLO la jugabilidad (bloques, picos, portales, pads, orbes) con ritmo coherente para el modo de juego pedido. Todo salto debe ser superable y deja siempre espacio libre para pasar. Sin decoracion.",
         ccc3(0x03, 0x1d, 0x64),
         ccc3(0x02, 0xa5, 0xfc)
     },
@@ -79,9 +74,7 @@ static const ModeInfo MODES[9] = {
         "decoracion del nivel.",
         "Decora tus estructuras existentes con detalles visuales, atmosfera y contraste respetando las colisiones.",
         "Mejora la deco de esta parte con estilo neon azul y detalles brillantes",
-        "MODO DECO. Decora SIN modificar la jugabilidad: no muevas, borres ni cambies bloques solidos, picos "
-        "ni triggers que afecten colisiones. Usa solo objetos decorativos, colores y capas (z-order) "
-        "coherentes con el estilo pedido. Respeta los grupos y canales de color que ya estan en uso.",
+        "MODO DECO. Objetivo: decorar con estilo y atmosfera SIN alterar la jugabilidad. Usa solo objetos decorativos, fuera de la ruta de salto, sin tapar picos ni plataformas. Respeta el estilo pedido (colores, tema) y repite motivos con variacion.",
         ccc3(0x28, 0x0c, 0x66),
         ccc3(0xb6, 0x48, 0xf6)
     },
@@ -96,9 +89,7 @@ static const ModeInfo MODES[9] = {
         "decoracion al mismo tiempo.",
         "Genera una seccion completa combinando estructura jugable verificada y decoracion tematica.",
         "Crea una seccion de 15 segundos con layout dinamico y decoracion espacial",
-        "MODO LAYOUT + DECO. Trabaja en dos pasadas: 1) crea la jugabilidad como en LAYOUT y comprueba que "
-        "sea superable; 2) decora encima como en DECO sin alterar la jugabilidad ya validada. Informa de "
-        "cada pasada por separado.",
+        "MODO LAYOUT + DECO. Objetivo: una seccion completa en dos pasadas: 1) jugabilidad superable como en LAYOUT; 2) decoracion como en DECO sin alterar la ruta validada. Informa de cada pasada por separado.",
         ccc3(0x30, 0x20, 0x0e),
         ccc3(0xfb, 0xcf, 0x50)
     },
@@ -113,9 +104,7 @@ static const ModeInfo MODES[9] = {
         "estructuras personalizadas.",
         "Crea patrones internos, bordes, esquinas y rellenos modulares para tus estructuras y pilares.",
         "Disena un bloque tecnologico con bordes cian e interior geometrico oscuro",
-        "MODO BLOCK DESIGN. Disena bloques y estructuras personalizadas (bordes, relleno, esquinas, detalles) "
-        "con un estilo consistente. La forma jugable (hitbox) debe quedar identica a la original. Reutiliza "
-        "piezas y agrupalas para poder duplicarlas.",
+        "MODO BLOCK DESIGN. Objetivo: disenar bloques y estructuras personalizadas (bordes, esquinas, relleno, detalles) con estilo consistente. La hitbox debe quedar como un bloque limpio. Crea una pieza modular y repitela para poder copiarla.",
         ccc3(0x3f, 0x11, 0x32),
         ccc3(0xf7, 0x54, 0x75)
     },
@@ -130,9 +119,7 @@ static const ModeInfo MODES[9] = {
         "de forma automatica.",
         "Automatiza triggers de Move, Pulse, Color, Alpha, Toggle y Spawn usando grupos libres de forma segura.",
         "Configura triggers de pulso y movimiento suave para las estructuras del grupo libre",
-        "MODO TRIGGERS. Configura triggers (movimiento, color, pulso, alfa, toggle, spawn, etc.) para lograr "
-        "el efecto pedido. Antes de crear grupos o canales de color, consulta cuales estan en uso y elige "
-        "libres. Explica el orden y el tiempo de cada trigger.",
+        "MODO TRIGGERS. Objetivo: configurar triggers (move, color, pulse, alpha, toggle, spawn...) para lograr el efecto pedido. Elige grupos y canales libres (no los ya usados) y explica el orden y el tiempo de cada trigger. Nunca ocultes con toggle objetos que afecten la jugabilidad.",
         ccc3(0x01, 0x34, 0x57),
         ccc3(0x00, 0xe3, 0xf7)
     },
@@ -147,9 +134,7 @@ static const ModeInfo MODES[9] = {
         "y creativas.",
         "Conecta dos zonas o cambios de portal con efectos visuales fluidos sin entorpecer la lectura del jugador.",
         "Haz una transicion entre 2 zonas pasando de tono oscuro a cian brillante",
-        "MODO TRANSICIONES. Crea transiciones suaves entre dos zonas o estilos del nivel (colores, fondo, "
-        "escenario, modo de juego) usando triggers y decoracion, sin alterar la jugabilidad ni el tiempo de "
-        "las secciones.",
+        "MODO TRANSICIONES. Objetivo: transicion suave entre dos zonas o estilos (color, fondo, ambiente) con triggers y un poco de decoracion, sin cambiar la jugabilidad ni la duracion de las secciones. Indica de que estilo a cual y cuanto dura.",
         ccc3(0x19, 0x0e, 0x5b),
         ccc3(0xa9, 0x4e, 0xf8)
     },
@@ -164,9 +149,7 @@ static const ModeInfo MODES[9] = {
         "movimiento y mas.",
         "Incorpora parallax, pulsos sincronizados, particulas y animaciones cuidando el rendimiento de objetos.",
         "Anade un fondo con efecto parallax suave y destellos sincronizados",
-        "MODO EFECTOS AVANZADOS. Anade efectos especiales y movimiento (particulas, pulsos al ritmo, shake, "
-        "parallax, animaciones de mover/rotar/escalar) de forma ordenada y sin saturar el nivel. No cambies "
-        "la jugabilidad.",
+        "MODO EFECTOS AVANZADOS. Objetivo: efectos visuales (pulsos al ritmo, movimiento, rotacion, escala, parallax) ordenados y sin saturar el nivel ni el rendimiento. No cambies la jugabilidad.",
         ccc3(0x3b, 0x1b, 0x17),
         ccc3(0xfa, 0x92, 0x37)
     },
@@ -181,8 +164,7 @@ static const ModeInfo MODES[9] = {
         "y consejos para tu nivel.",
         "Analiza tu nivel actual y ofrece recomendaciones de composicion, colores y ritmo sin modificar objetos.",
         "Dame ideas para mejorar el contraste y la atmosfera de esta seccion",
-        "MODO IDEAS. No modifiques el nivel. Analiza lo que hay y propone ideas, mejoras y consejos concretos "
-        "(ritmo, contraste, composicion, deco, triggers) ordenados de mayor a menor impacto.",
+        "MODO IDEAS. No modificas el nivel. Da de 3 a 5 ideas concretas y accionables (ritmo, contraste, composicion, deco, triggers) ordenadas de mayor a menor impacto.",
         ccc3(0x01, 0x14, 0x51),
         ccc3(0x00, 0x9b, 0xf7)
     }

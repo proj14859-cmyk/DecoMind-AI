@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Servidor de prueba de DecoMind AI (v0.3).
+Servidor de DecoMind AI (v0.3.13).
 
 Corre en Termux o en un PC. Sin dependencias externas.
 
@@ -27,6 +27,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from mod_python_api import (ApiReply, DailyQuota, format_reply, get_provider,
                             parse_request_body)
+from mod_python_api.catalog import Catalog
 
 def _load_env():
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -44,6 +45,8 @@ DAILY_LIMIT = int(os.environ.get("DAILY_LIMIT", "20"))
 
 quota = DailyQuota(DAILY_LIMIT)
 provider = get_provider()  # DECOMIND_PROVIDER=stub (por defecto)
+catalog = Catalog()
+MAX_CATALOG_BYTES = 3_000_000
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -57,6 +60,15 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0))
+        if self.path.startswith("/catalog"):
+            # El mod sube aqui el catalogo completo de objetos del juego (comando /catalogo).
+            if length <= 0 or length > MAX_CATALOG_BYTES:
+                self._send("MSG:Catalogo rechazado (tamano invalido).\n")
+                return
+            n = catalog.save_game_catalog(self.rfile.read(length).decode("utf-8", errors="replace"))
+            print(f"[catalogo] recibidos {n} objetos del juego")
+            self._send(f"MSG:Catalogo recibido: {n} objetos.\nCOUNT:{n}\n")
+            return
         body = self.rfile.read(length).decode("utf-8", errors="replace")
         req = parse_request_body(body)
         print(f"[peticion] modo={req.mode!r} prompt={req.prompt!r}")
@@ -74,7 +86,8 @@ class Handler(BaseHTTPRequestHandler):
         print(f"[ok] usadas hoy: {quota.used}/{DAILY_LIMIT}")
 
     def do_GET(self):
-        self._send(format_reply(ApiReply("DecoMind AI server OK"), quota.used, DAILY_LIMIT))
+        info = "catalogo del juego cargado" if catalog.game_loaded else "sin catalogo del juego (usa /catalogo)"
+        self._send(format_reply(ApiReply(f"DecoMind AI server OK - {info}"), quota.used, DAILY_LIMIT))
 
 
 if __name__ == "__main__":
