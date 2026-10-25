@@ -46,6 +46,8 @@ public:
             return res;
         }
 
+        bool gameplayAllowed = modeAllowsGameplayObjects(modeId);
+
         size_t pos = 0;
         while (pos < rawObjs.size()) {
             size_t end = rawObjs.find(';', pos);
@@ -59,7 +61,7 @@ public:
                 continue;
             }
 
-            if (isValidSingleObject(entry)) {
+            if (isValidSingleObject(entry, gameplayAllowed)) {
                 res.sanitizedObjects += entry + ";";
                 res.validCount++;
             } else {
@@ -76,8 +78,28 @@ public:
         return res;
     }
 
+    // Solo estos modos pueden colocar objetos que afectan al gameplay.
+    static bool modeAllowsGameplayObjects(std::string const& modeId) {
+        return modeId == "layout" || modeId == "layout_deco" || modeId == "block_design";
+    }
+
+    // Picos, portales, velocidades, pads y orbes (IDs comunes de GD). Segunda barrera:
+    // el servidor ya los filtra, pero el mod no se fia de nadie.
+    static bool isGameplayObjectId(int id) {
+        static constexpr int IDS[] = {
+            8, 9, 39, 103, 392,                        // picos
+            10, 11, 12, 13, 45, 46, 47, 99, 101, 111,  // portales
+            286, 287, 660, 745, 1331, 1933,
+            200, 201, 202, 203, 1334,                  // velocidad
+            35, 67, 140, 1332,                         // pads
+            36, 84, 141, 1022, 1330, 1333, 1704, 1751  // orbes
+        };
+        for (int v : IDS) if (v == id) return true;
+        return false;
+    }
+
 private:
-    static bool isValidSingleObject(std::string const& objStr) {
+    static bool isValidSingleObject(std::string const& objStr, bool gameplayAllowed) {
         // Formato de objeto GD: k1,v1,k2,v2,...
         // Clave 1 = ID de objeto, Clave 2 = X, Clave 3 = Y, Clave 32 = Escala
         std::vector<std::string> tokens;
@@ -105,6 +127,7 @@ private:
             if (key == 1) {
                 int id = std::atoi(val.c_str());
                 if (id < MIN_OBJ_ID || id > MAX_OBJ_ID) return false;
+                if (!gameplayAllowed && isGameplayObjectId(id)) return false;
                 hasId = true;
             } else if (key == 2) {
                 float x = static_cast<float>(std::atof(val.c_str()));

@@ -9,6 +9,7 @@
 // disponible o pendiente de configuracion.
 // ===========================================================================
 #include "LevelExecutor.hpp"
+#include "ObjectCatalog.hpp"
 #include "Modes.hpp"
 #include <Geode/utils/async.hpp>
 #include <Geode/utils/web.hpp>
@@ -165,9 +166,51 @@ public:
         );
     }
 
+    // Sube el catalogo de objetos del juego al servidor (POST <servidor>/catalog).
+    // Solo tiene sentido en modo "server". El callback recibe (ok, mensaje).
+    void uploadCatalog(std::function<void(bool, std::string const&)> onDone) {
+        if (getOriginMode() != "server") {
+            if (onDone) onDone(false, "El catalogo se sube al servidor: cambia el Origen a 'server' en Ajustes.");
+            return;
+        }
+        std::string url = trimStr(getServerUrl());
+        if (url.empty()) {
+            if (onDone) onDone(false, "La URL del servidor esta vacia (Ajustes).");
+            return;
+        }
+        // http://IP:8765/generate  ->  http://IP:8765/catalog
+        size_t g = url.rfind("/generate");
+        url = (g != std::string::npos) ? url.substr(0, g) + "/catalog" : url + "/catalog";
+
+        int count = 0;
+        std::string body = ObjectCatalog::build(count);
+        if (count == 0) {
+            if (onDone) onDone(false, "No se pudo leer el catalogo de objetos del juego.");
+            return;
+        }
+
+        auto req = web::WebRequest();
+        req.bodyString(body);
+        req.timeout(std::chrono::seconds(60));
+        m_catalogTask.spawn(
+            "decomind-catalog-upload",
+            req.post(url),
+            [onDone, count](web::WebResponse webRes) {
+                if (!webRes.ok()) {
+                    if (onDone) onDone(false, fmt::format(
+                        "No se pudo subir el catalogo (codigo {}). Revisa que el servidor este activo.", webRes.code()));
+                    return;
+                }
+                std::string reply = extractField(webRes.string().unwrapOr(""), "MSG");
+                if (onDone) onDone(true, reply.empty() ? fmt::format("Catalogo enviado ({} objetos).", count) : reply);
+            }
+        );
+    }
+
 private:
     bool m_busy = false;
     async::TaskHolder<web::WebResponse> m_task;
+    async::TaskHolder<web::WebResponse> m_catalogTask;
 
     static std::string extractField(std::string const& body, std::string const& key) {
         std::string prefix = key + ":";

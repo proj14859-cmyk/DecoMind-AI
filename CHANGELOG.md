@@ -6,34 +6,62 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 
 ---
 
-## [0.3.12] - 2026-10-25
+## [0.3.2-alpha] - 2026-10-25 — Parche y Modificación del Diseño Visual
 
-### Rediseño Interactivo, Efectos RGB y Nuevos Recursos Visuales
-- **Nuevo botón del editor (`resources/editor-btn.png`) y nuevo logo oficial (`logo.png`)**:
-  - Conversión de ambos recursos a formato PNG `RGBA` de 32 bits con canal alfa limpio y dimensiones estándar (`256x256` para `editor-btn.png` y `512x512` para `logo.png`).
-  - Reemplazo del antiguo botón `"IA"` en `EditorUI` por el nuevo botón gráfico `editor-btn.png`.
-- **Cuadrícula central de modos deslizante hacia abajo (`INICIO`)**:
-  - Integración de la cuadrícula `3x3` de los 9 modos dentro de un `ScrollLayer` vertical fluido con espacio inferior reservado para futuras funciones y herramientas.
-- **Contornos RGB por paleta de colores y degradado interior en tarjetas de modos**:
-  - Cada una de las 9 tarjetas anima su contorno dinámicamente dentro de su propia familia cromática (`shiftPaletteColor`: tonos ámbar/naranja en tarjetas naranjas, tonos celestes/azules en tarjetas azules, tonos violeta/magenta en tarjetas moradas, etc.).
-  - Añadido degradado interior escalonado hacia un tono más claro de la paleta de cada tarjeta (`drawRoundedRectWithSoftGradient`) para aportar mayor profundidad visual.
-- **Decoración RGB en picos de Geometry Dash y banner del robot aliado**:
-  - Los picos decorativos y líneas de la esquina inferior izquierda cuentan ahora con animación dinámica RGB (`redrawSpikesRgb`).
-  - El banner inferior derecho del aliado incorpora contorno RGB dinámico, animación continua de flotación y pulso en el icono de la cabeza del robot (`m_allyRobotNode`) y transición gradual de aparición y desaparición (*fade-in / fade-out*) para las frases de `frases.txt`.
-- **Reubicación dinámica de paneles al seleccionar `CHAT`**:
-  - Eliminada la sección antigua estática de conversación en el centro.
-  - Al pulsar la pestaña `CHAT` en la barra lateral, el cuadro `CHAT / COMANDO` se traslada y amplía hacia el contenedor central, mientras el cuadro `HISTORIAL` sube automáticamente en la columna derecha para ocupar el espacio que dejó libre el chat. Al cambiar a cualquier otra pestaña, ambos paneles regresan a su ubicación original.
-- **Mejoras en el panel y ventana emergente de `HISTORIAL`**:
-  - La ventana emergente `HistoryPopup` se abre ahora **únicamente presionando el botón `>`** situado a la derecha de las filas del panel `HISTORIAL`.
-  - Dentro de `HistoryPopup` (`HISTORIAL DE PETICIONES`), se eliminó la interacción clicable sobre los recuadros individuales para que sean tarjetas informativas de solo lectura dentro de un menú deslizante (`ScrollLayer`) fluido hacia abajo.
-- **Rediseño completo de la pestaña `AJUSTES` y selector de color estilo Editor de Geometry Dash (`GDColorPickerPopup`)**:
-  - Reemplazo de los botones grandes por defecto de GD que se solapaban con el texto por botones estilizados nativos (`ui::makeCustomMenuBtn`) distribuidos en 5 tarjetas horizontales limpias.
-  - Eliminado el botón de recarga manual de `frases.txt`.
-  - Añadida opción para cambiar la **paleta de colores del menú interactivo** en tiempo real.
-  - Añadidos controles para activar/desactivar el efecto de los **recuadros RGB** (`ACTIVO` / `NORMAL`), regular su **velocidad** (`25%` a `300%`) y elegir su **color base**.
-  - Implementada la ventana `GDColorPickerPopup` inspirada en el selector de colores oficial del editor de Geometry Dash (18 presets rápidos de GD, barras deslizantes R/G/B `0..255`, comparador `Original` vs `Nuevo`, código hexadecimal `#RRGGBB` y botón de restauración por defecto).
-- **Documentación completa**:
-  - `README.md` reescrito íntegramente como manual detallado de arquitectura, modos, chat, personalización y proveedores de IA (`stub`, `groq` y plantilla para nuevos proveedores).
+### Selector de Colores Circular Estilo Editor Oficial de Geometry Dash
+- **Reemplazo completo del selector de color (`GDColorPickerPopup`)**:
+  - Eliminado el título `"PALETA DEL MENU INTERACTIVO"` y los controles rectangulares anteriores.
+  - Implementado el diseño circular oficial del editor de Geometry Dash: rueda circular exterior de matiz (360°), disco central de saturación y brillo con cursores circulares en vivo, recuadro cuadrado de vista previa en la esquina superior izquierda, casillas `R:`, `G:`, `B:` y campo `HEX:` editable a la izquierda, botones `COPY`, `PASTE` y `DEFAULT` a la derecha, y botón verde `OK` en la parte inferior central.
+
+### Rediseño Moderno y Simplificado de `AJUSTES`
+- **Interfaz limpia sin bordes excesivos ni opciones repetidas**:
+  - Sustitución de las cajas recargadas y botones de borde grueso por una disposición moderna de 4 filas separadas por divisores delgados (`0.8f`) y botones planos de borde sutil (`0.9f`):
+    1. **Modo de conexión** (`Local` / `Servidor HTTP` + botón `Cambiar`).
+    2. **Dirección del servidor (HTTP)** (campo `TextInput` + botón `Guardar`).
+    3. **Color principal del menú** (muestra de color + botón `Seleccionar` que abre la rueda circular).
+    4. **Flujo RGB en contornos** (botón `Alternar` + controles `-` / `+` de velocidad del flujo de `25%` a `300%`).
+
+### Tarjetas de los 9 Modos y Flujo RGB Tipo "Gusano" (`INICIO`)
+- **Color entero limpio y espaciado tipográfico rediseñado**:
+  - Eliminado el degradado escalonado interior de las tarjetas, reemplazándolo por su color entero original uniforme y limpio (`m.bgColor`).
+  - Desactivada la animación brusca de zoom al tocar/pasar sobre las tarjetas (`m_scaleMultiplier = 1.015f`) y añadido un marco interior complementario suave al seleccionarlas.
+  - Rediseñada la distribución vertical de icono, título, línea separadora sutil y las dos líneas de descripción (conservando su texto íntegro) con márgenes holgados para que sean claramente visibles y nunca toquen el borde inferior.
+- **Contornos RGB con flujo tipo "gusano" (traslado de punto A hacia punto B)**:
+  - Implementado `ui::drawWormPerimeterBorder()`: en lugar de cambiar todo el borde de color a la vez, una estela luminosa recorre continuamente el perímetro del recuadro trasladándose del punto A al punto B con velocidad regulable desde `AJUSTES` (aplicado tanto a las 9 tarjetas en su propia paleta como al banner del aliado y a los picos decorativos de GD).
+
+### Encuadre del Chat, Barra Superior, Botones e Historial
+- **Encuadre exacto de `CHAT / COMANDO` en el centro (Pestaña `CHAT`)**:
+  - Reconstruido `m_chatPanelNode` en coordenadas locales con punto de anclaje central `{0.5, 0.5}` para que, al seleccionar la pestaña `CHAT`, se ubique exactamente en el centro horizontal del cuadrado central (`x = 699` ref) y ligeramente pegado a su borde superior, con el cuadro de estado/respuesta debajo y sin pisar la columna derecha.
+- **Limpieza de la esquina superior derecha**:
+  - Eliminados el icono del rombo/diamante y la cápsula de barra superior ubicados en la esquina superior derecha del menú.
+- **Botones en color entero con iluminación media**:
+  - Eliminado el degradado de todos los botones laterales y de acción; al seleccionarlos se iluminan en color entero con intensidad media equilibrada (`#0d4fa8`).
+- **Panel derecho `HISTORIAL` y ventana emergente `HISTORIAL DE PETICIONES`**:
+  - En el recuadro derecho `HISTORIAL`: eliminados los botones `>` al lado de cada oración y sus contornos gruesos; se conserva **un único botón compacto de borde delgado en la esquina superior derecha del recuadro** que despliega la ventana de historial.
+  - En la ventana emergente `HISTORIAL DE PETICIONES`: eliminado el contorno de color de cada oración, dejando únicamente el texto visible limpio separado oración por oración dentro de la lista deslizante.
+
+---
+
+## [Catalogo de IDs y prompts] - 2026-10-25 (antes numerado 0.3.13)
+
+### Prompts de los modos (punto 2)
+- Reescritos los 9 `internalPrompt` de `Modes.hpp` (objetivo claro, restricciones de jugabilidad y honestidad cuando falta información del nivel).
+- Nuevas reglas por modo en el servidor (`Server/mod_python_api/prompts.py`): qué puede y qué no puede hacer cada modo, criterios de creatividad, grupos 9000-9100 y canales 900-950 para triggers mientras la IA no lee el nivel, y formato exacto de la respuesta.
+- `estructurar` e `ideas` no colocan objetos (estructurar necesita leer el nivel, aún no disponible).
+
+### Catálogo de IDs de objetos (punto 3)
+- Nuevo `Server/mod_python_api/catalog.py` + `Server/data/catalog_curated.json`: la IA solo puede usar IDs del catálogo y de las categorías que permite su modo.
+- Nuevo comando **`/catalogo`** en el chat del mod: lee todos los objetos del juego (`ObjectToolbox`) y los sube al servidor (`POST /catalog` -> `Server/data/catalog_game.txt`). Nuevo `src/ObjectCatalog.hpp` y `AIClient::uploadCatalog`.
+- Los objetos aceptan `rot`, `scale` y `props` (claves de GD validadas por rango) para triggers, colores, grupos y capas.
+- `LevelValidator`: segunda barrera de seguridad; en modos que no son layout se rechazan picos, portales, velocidades, pads y orbes.
+- El generador local de prueba ya no coloca picos en `triggers`/`transiciones` ni objetos en `estructurar`.
+- `groq_provider.py` incluye la elección automática de modelo disponible y el detalle de los errores HTTP.
+
+---
+
+## [0.3.12] - 2026-10-25
+- Nuevo botón del editor (`resources/editor-btn.png`) y nuevo logo oficial (`logo.png`) en formato RGBA de 32 bits.
+- Cuadrícula central de modos deslizante hacia abajo (`ScrollLayer`), reubicación dinámica del panel de chat y manual completo en `README.md`.
 
 ---
 
@@ -44,28 +72,9 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 ---
 
 ## [0.3.0] - 2026-10-23
-
-### Rediseño Visual Completo (Fidelidad 1:1 a la Referencia)
-- **Marco Sci-Fi y Lienzo Nativo**:
-  - Implementación de mapeo proporcional exacto `1536x1024` $\rightarrow$ `480x320` (`SCALE_K = 0.3125f` en X e Y) para garantizar proporciones 1:1 en el sistema de coordenadas de Cocos2d-x / Geometry Dash.
-  - Marco exterior con esquinas biseladas sci-fi, fondo azul marino profundo (`#00093d` / `#000b32`), líneas arquitectónicas y picos decorativos de Geometry Dash con líneas cian en la esquina inferior izquierda.
-- **Header Superior**:
-  - **Botón volver**: botón verde neón con doble triángulo y borde luminoso menta para cerrar el menú.
-  - **Mascota robot DecoMind**: integrada en el centro superior sobre el borde del marco, con ojos cian `^ ^`, auriculares, destello de 4 puntas (`✦`) y animación suave de flotación.
-  - **Cápsula superior de progreso**: cápsula horizontal con destello y barra cian-turquesa sincronizada con la disponibilidad de la cuota diaria.
-  - **Botón de diamante**: gema facetada azul/cian en la esquina superior derecha con acceso directo a estadísticas.
-- **Cuadrícula 3x3 de los 9 Modos (Pestaña INICIO)**:
-  - Reemplazo de la antigua lista deslizante vertical por una cuadrícula uniforme de 3 filas $\times$ 3 columnas con tarjetas redondeadas.
-- **Columna Derecha (3 Paneles Apilados)**:
-  - Paneles `USO DE LA IA`, `CHAT / COMANDO` e `HISTORIAL`.
-- **Barra Inferior y Banner del Aliado**:
-  - Barra de 5 compartimentos (`FAVORITOS`, `TUTORIALES`, `MIS NIVELES`, `GUARDAR`, `REINICIAR`) y banner inferior derecho del robot aliado.
-- **Arquitectura Modular en C++**:
-  - `src/Modes.hpp`, `src/UIRenderer.hpp`, `src/AIClient.hpp`, `src/LevelValidator.hpp`, `src/LevelExecutor.hpp` y `src/HistoryManager.hpp`.
+- Rediseño visual base fiel a la referencia (`1536x1024` $\rightarrow$ `480x320`) y arquitectura modular en C++ (`Modes.hpp`, `UIRenderer.hpp`, `AIClient.hpp`, `LevelValidator.hpp`, `LevelExecutor.hpp`, `HistoryManager.hpp`).
 
 ---
 
 ## [0.2.0] - Versión Anterior
-- Prototipo inicial de menú con lista deslizante vertical de modos.
-- Servidor Python básico de prueba con cuota diaria.
-- Botón "IA" en `EditorUI`.
+- Prototipo inicial de menú con lista deslizante vertical de modos y servidor Python básico.

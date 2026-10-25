@@ -1,13 +1,13 @@
 #pragma once
 // ===========================================================================
-// DecoMind AI v0.3.12 - Motor de Renderizado Visual Nativo (Cocos2d-x / Geode)
+// DecoMind AI v0.3.2-alpha - Motor de Renderizado Visual Nativo (Cocos2d-x)
 //
-// Reproduce con fidelidad 1:1 la interfaz de referencia (1536x1024 -> 480x320)
-// e incorpora soporte para:
-//   - Paleta de color personalizable del menu interactivo.
-//   - Contornos RGB dinamicos por paleta de color en tarjetas y decoraciones.
-//   - Degradados interiores suaves mas claros en las tarjetas de modos.
-//   - Carga de sprites HD (_spr) con respaldo vectorial automatico.
+// Parche y modificacion del diseno v0.3.2-alpha:
+//   - Tarjetas de modos en color entero limpio (sin degradado escalonado).
+//   - Botones laterales y de accion en color entero con iluminacion media.
+//   - Contorno RGB tipo "gusano" (flujo luminoso trasladandose de A hacia B
+//     alrededor del perimetro) con velocidad configurable.
+//   - Eliminados el rombo y la barra de progreso de la esquina superior derecha.
 // ===========================================================================
 #include "Modes.hpp"
 #include <algorithm>
@@ -39,8 +39,8 @@ static const ccColor3B COL_BG_CENTER     = ccc3(0x00, 0x0d, 0x39);
 static const ccColor3B COL_BG_RIGHT_CARD = ccc3(0x00, 0x10, 0x3c);
 static const ccColor3B COL_BG_INPUT      = ccc3(0x04, 0x13, 0x31);
 static const ccColor3B COL_BG_SIDE_IDLE  = ccc3(0x05, 0x19, 0x4c);
-static const ccColor3B COL_BG_SIDE_ACT   = ccc3(0x00, 0x80, 0xfd);
-static const ccColor3B COL_BG_SIDE_ACT_T = ccc3(0x22, 0xb8, 0xff);
+// Iluminacion media y color entero para botones seleccionados (sin brillo exagerado)
+static const ccColor3B COL_BG_SIDE_ACT   = ccc3(0x0d, 0x4f, 0xa8);
 static const ccColor3B COL_BG_BOTTOM     = ccc3(0x00, 0x0a, 0x2f);
 static const ccColor3B COL_BG_ALLY       = ccc3(0x01, 0x0e, 0x48);
 
@@ -114,19 +114,7 @@ inline ccColor3B hsvToRgbColor(float h, float s, float v) {
     );
 }
 
-// Cicla un color dentro de su propia paleta cromatica (ej. naranja -> ambar/coral/dorado)
-inline ccColor3B shiftPaletteColor(ccColor3B baseCol, float phase) {
-    float h = 0.f, s = 0.f, v = 0.f;
-    rgbToHsv(baseCol, h, s, v);
-    float wave = std::sin(phase);
-    float wave2 = std::cos(phase * 0.7f);
-    float hShift = h + wave * 0.055f; // Oscila suavemente dentro de la misma familia de color
-    float sShift = std::max(0.45f, std::min(1.f, s + wave2 * 0.12f));
-    float vShift = std::max(0.65f, std::min(1.f, v + 0.10f * (0.5f + 0.5f * wave)));
-    return hsvToRgbColor(hShift, sShift, vShift);
-}
-
-// Configuracion persistente de colores y animacion RGB del menu
+// Configuracion persistente de colores y flujo RGB
 struct ThemeConfig {
     static ccColor3B getMenuAccent() {
         int r = Mod::get()->getSavedValue<int>("theme_r", static_cast<int>(COL_FRAME_BLUE.r));
@@ -143,16 +131,6 @@ struct ThemeConfig {
         Mod::get()->setSavedValue<int>("theme_r", c.r);
         Mod::get()->setSavedValue<int>("theme_g", c.g);
         Mod::get()->setSavedValue<int>("theme_b", c.b);
-    }
-
-    static ccColor3B getMenuBgDark() {
-        ccColor3B acc = getMenuAccent();
-        return lerpColor(COL_BG_FRAME, acc, 0.16f);
-    }
-
-    static ccColor3B getMenuCardBg() {
-        ccColor3B acc = getMenuAccent();
-        return lerpColor(COL_BG_RIGHT_CARD, acc, 0.18f);
     }
 
     static bool isRgbEnabled() {
@@ -176,10 +154,10 @@ struct ThemeConfig {
         Mod::get()->setSavedValue<int>("rgb_speed_pct", std::clamp(pct, 25, 300));
     }
 
-    static ccColor3B getCustomRgbColor() {
-        int r = Mod::get()->getSavedValue<int>("rgb_col_r", static_cast<int>(COL_FRAME_CYAN.r));
-        int g = Mod::get()->getSavedValue<int>("rgb_col_g", static_cast<int>(COL_FRAME_CYAN.g));
-        int b = Mod::get()->getSavedValue<int>("rgb_col_b", static_cast<int>(COL_FRAME_CYAN.b));
+    static ccColor3B getClipboardColor() {
+        int r = Mod::get()->getSavedValue<int>("clip_col_r", 10);
+        int g = Mod::get()->getSavedValue<int>("clip_col_g", 76);
+        int b = Mod::get()->getSavedValue<int>("clip_col_b", 196);
         return ccc3(
             static_cast<GLubyte>(std::clamp(r, 0, 255)),
             static_cast<GLubyte>(std::clamp(g, 0, 255)),
@@ -187,18 +165,10 @@ struct ThemeConfig {
         );
     }
 
-    static void setCustomRgbColor(ccColor3B c) {
-        Mod::get()->setSavedValue<int>("rgb_col_r", c.r);
-        Mod::get()->setSavedValue<int>("rgb_col_g", c.g);
-        Mod::get()->setSavedValue<int>("rgb_col_b", c.b);
-    }
-
-    static bool useCustomRgbBase() {
-        return Mod::get()->getSavedValue<bool>("rgb_use_custom", false);
-    }
-
-    static void setUseCustomRgbBase(bool u) {
-        Mod::get()->setSavedValue<bool>("rgb_use_custom", u);
+    static void setClipboardColor(ccColor3B c) {
+        Mod::get()->setSavedValue<int>("clip_col_r", c.r);
+        Mod::get()->setSavedValue<int>("clip_col_g", c.g);
+        Mod::get()->setSavedValue<int>("clip_col_b", c.b);
     }
 };
 
@@ -244,30 +214,79 @@ inline void drawRoundedRect(
     dn->drawPolygon(pts.data(), static_cast<unsigned int>(pts.size()), fill, borderW, border);
 }
 
-// Dibuja un recuadro con un degradado leve hacia un tono mas claro en la parte superior
-inline void drawRoundedRectWithSoftGradient(
+// Dibuja un contorno con efecto "gusano" (flujo RGB que se traslada del punto A al punto B
+// recorriendo el perimetro del recuadro redondeado).
+inline void drawWormPerimeterBorder(
     CCDrawNode* dn,
     float x, float y, float w, float h, float r,
-    ccColor3B baseCol, ccColor3B accentCol, float alpha,
-    float borderW, ccColor4F border
+    ccColor3B baseBorderCol,
+    float travelPhase,
+    bool wormEnabled,
+    bool rainbowHue,
+    float lineThickness
 ) {
-    drawRoundedRect(dn, x, y, w, h, r, rgba4F(baseCol, alpha), 0.f, ccc4f(0, 0, 0, 0));
+    if (!dn) return;
+    dn->clear();
 
-    // Degradado escalonado suave hacia un tono mas claro de la misma paleta
-    ccColor3B midLight = lerpColor(baseCol, accentCol, 0.16f);
-    ccColor3B topLight = lerpColor(baseCol, accentCol, 0.30f);
-    float inset = ps(3.f);
-    drawRoundedRect(
-        dn, x + inset, y + h * 0.32f, w - inset * 2.f, h * 0.68f - inset, std::max(1.f, r - inset),
-        rgba4F(midLight, 0.42f), 0.f, ccc4f(0, 0, 0, 0)
-    );
-    drawRoundedRect(
-        dn, x + inset, y + h * 0.58f, w - inset * 2.f, h * 0.42f - inset, std::max(1.f, r - inset),
-        rgba4F(topLight, 0.38f), 0.f, ccc4f(0, 0, 0, 0)
-    );
+    // Subdividimos los lados rectos y esquinas en puntos equidistantes alrededor del perimetro
+    auto cornerPts = makeRoundedRectVerts(x, y, w, h, r, 5);
+    std::vector<CCPoint> path;
+    path.reserve(80);
+    size_t nCorners = cornerPts.size();
+    for (size_t i = 0; i < nCorners; ++i) {
+        CCPoint p1 = cornerPts[i];
+        CCPoint p2 = cornerPts[(i + 1) % nCorners];
+        float dist = std::hypot(p2.x - p1.x, p2.y - p1.y);
+        int steps = std::max(1, static_cast<int>(dist / ps(18.f)));
+        for (int s = 0; s < steps; ++s) {
+            float t = static_cast<float>(s) / static_cast<float>(steps);
+            path.push_back(ccp(p1.x + (p2.x - p1.x) * t, p1.y + (p2.y - p1.y) * t));
+        }
+    }
 
-    if (borderW > 0.f && border.a > 0.01f) {
-        drawRoundedRect(dn, x, y, w, h, r, ccc4f(0, 0, 0, 0), borderW, border);
+    int totalSegs = static_cast<int>(path.size());
+    if (totalSegs < 4) return;
+
+    // 1. Contorno base tenue estatico para mantener la silueta del recuadro
+    ccColor4F baseCol4F = rgba4F(baseBorderCol, wormEnabled ? 0.35f : 0.92f);
+    for (int i = 0; i < totalSegs; ++i) {
+        CCPoint a = path[i];
+        CCPoint b = path[(i + 1) % totalSegs];
+        dn->drawSegment(a, b, lineThickness * 0.5f, baseCol4F);
+    }
+
+    if (!wormEnabled) return;
+
+    // 2. Gusano luminoso trasladandose de A hacia B a lo largo del perimetro
+    int wormLen = std::max(8, totalSegs / 3);
+    float headPos = std::fmod(travelPhase * static_cast<float>(totalSegs), static_cast<float>(totalSegs));
+    if (headPos < 0.f) headPos += static_cast<float>(totalSegs);
+    int headIdx = static_cast<int>(headPos);
+
+    float baseH = 0.f, baseS = 0.f, baseV = 0.f;
+    rgbToHsv(baseBorderCol, baseH, baseS, baseV);
+
+    for (int k = 0; k < wormLen; ++k) {
+        int segIdx = (headIdx - k + totalSegs) % totalSegs;
+        CCPoint a = path[segIdx];
+        CCPoint b = path[(segIdx + 1) % totalSegs];
+
+        // Progreso desde la cola (0.0) hasta la cabeza del gusano (1.0)
+        float progress = 1.0f - (static_cast<float>(k) / static_cast<float>(wormLen));
+        ccColor3B segRgb;
+        if (rainbowHue) {
+            float hHue = std::fmod(travelPhase * 0.25f + progress * 0.35f, 1.0f);
+            segRgb = hsvToRgbColor(hHue, 0.85f, 1.0f);
+        } else {
+            // Flujo dentro de la paleta del boton (va desde el color base hacia un tono brillante/blanco en la punta)
+            float hShift = baseH + std::sin(progress * 3.14159f) * 0.06f;
+            ccColor3B shifted = hsvToRgbColor(hShift, std::max(0.5f, baseS), 1.0f);
+            segRgb = lerpColor(shifted, COL_TEXT_WHITE, progress * 0.52f);
+        }
+
+        float segAlpha = 0.25f + 0.75f * progress;
+        float segRadius = lineThickness * (0.48f + 0.28f * progress);
+        dn->drawSegment(a, b, segRadius, rgba4F(segRgb, segAlpha));
     }
 }
 
@@ -276,7 +295,7 @@ inline CCDrawNode* addRefRoundedBox(
     float rx, float ry_top, float rw, float rh, float r_ref,
     ccColor3B fillCol, float fillAlpha,
     ccColor3B borderCol, float borderAlpha,
-    float borderW_ref = 2.5f, int z = 2
+    float borderW_ref = 2.2f, int z = 2
 ) {
     auto dn = CCDrawNode::create();
     float x = px(rx);
@@ -285,14 +304,6 @@ inline CCDrawNode* addRefRoundedBox(
     float h = ps(rh);
     float r = ps(r_ref);
     float bw = ps(borderW_ref);
-
-    if (borderAlpha > 0.4f && bw > 0.f) {
-        drawRoundedRect(
-            dn, x - 0.8f, y - 0.8f, w + 1.6f, h + 1.6f, r + 0.8f,
-            ccc4f(0.f, 0.f, 0.f, 0.f), bw * 1.15f,
-            rgba4F(borderCol, borderAlpha * 0.28f)
-        );
-    }
 
     drawRoundedRect(
         dn, x, y, w, h, r,
@@ -340,64 +351,95 @@ inline void drawCircleShape(
     dn->drawPolygon(pts.data(), static_cast<unsigned int>(pts.size()), fill, borderW, border);
 }
 
-// Dibuja los picos decorativos de Geometry Dash en un CCDrawNode dedicado para animarlos en RGB
-inline void redrawSpikesRgb(CCDrawNode* dn, ccColor3B primaryCol, ccColor3B secondaryCol) {
+// Dibuja los picos decorativos de Geometry Dash con un flujo RGB que se traslada de izquierda a derecha
+inline void redrawSpikesWormRgb(CCDrawNode* dn, float travelPhase, bool rgbEnabled) {
     if (!dn) return;
     dn->clear();
 
-    ccColor4F cyanGlow = rgba4F(primaryCol, 0.96f);
-    ccColor4F blueLine = rgba4F(secondaryCol, 0.95f);
-    ccColor3B darkFill = lerpColor(ccc3(0x02, 0x10, 0x34), primaryCol, 0.22f);
-    ccColor3B midFill  = lerpColor(ccc3(0x04, 0x1c, 0x52), secondaryCol, 0.42f);
-    ccColor4F spikeFill = rgba4F(darkFill, 0.95f);
-    ccColor4F spikeInner = rgba4F(midFill, 0.85f);
+    ccColor3B baseCyan = COL_FRAME_CYAN;
+    ccColor3B baseBlue = COL_FRAME_BLUE;
+    ccColor4F spikeFill = rgba4F(ccc3(0x03, 0x22, 0x62), 0.95f);
+    ccColor4F spikeInner = rgba4F(ccc3(0x0c, 0x52, 0xb8), 0.75f);
 
-    // Linea vertical izquierda y pedestal horizontal
-    dn->drawSegment(ccp(px(40.f), py(736.f)), ccp(px(40.f), py(874.f)), ps(3.2f), blueLine);
-    dn->drawSegment(ccp(px(40.f), py(874.f)), ccp(px(252.f), py(874.f)), ps(4.2f), cyanGlow);
-
-    // Pico grande izquierdo
+    // Relleno base de los dos picos
     CCPoint spike1[3] = {
         ccp(px(68.f), py(872.f)),
         ccp(px(111.f), py(786.f)),
         ccp(px(154.f), py(872.f))
     };
-    dn->drawPolygon(spike1, 3, spikeFill, ps(2.8f), cyanGlow);
+    dn->drawPolygon(spike1, 3, spikeFill, ps(2.0f), rgba4F(baseBlue, 0.65f));
     CCPoint spike1In[3] = {
         ccp(px(86.f), py(870.f)),
         ccp(px(111.f), py(812.f)),
         ccp(px(136.f), py(870.f))
     };
-    dn->drawPolygon(spike1In, 3, spikeInner, ps(1.2f), blueLine);
+    dn->drawPolygon(spike1In, 3, spikeInner, ps(1.0f), rgba4F(baseBlue, 0.7f));
 
-    // Pico mediano derecho
     CCPoint spike2[3] = {
         ccp(px(146.f), py(872.f)),
         ccp(px(176.f), py(816.f)),
         ccp(px(206.f), py(872.f))
     };
-    dn->drawPolygon(spike2, 3, spikeFill, ps(2.5f), cyanGlow);
+    dn->drawPolygon(spike2, 3, spikeFill, ps(1.8f), rgba4F(baseBlue, 0.65f));
     CCPoint spike2In[3] = {
         ccp(px(160.f), py(870.f)),
         ccp(px(176.f), py(836.f)),
         ccp(px(192.f), py(870.f))
     };
-    dn->drawPolygon(spike2In, 3, spikeInner, ps(1.0f), blueLine);
+    dn->drawPolygon(spike2In, 3, spikeInner, ps(1.0f), rgba4F(baseBlue, 0.7f));
+
+    // Ruta continua A -> B sobre las lineas y contornos de los picos
+    CCPoint polyPath[9] = {
+        ccp(px(40.f), py(736.f)),
+        ccp(px(40.f), py(874.f)),
+        ccp(px(68.f), py(872.f)),
+        ccp(px(111.f), py(786.f)),
+        ccp(px(150.f), py(872.f)),
+        ccp(px(176.f), py(816.f)),
+        ccp(px(206.f), py(872.f)),
+        ccp(px(252.f), py(874.f)),
+        ccp(px(68.f), py(874.f))
+    };
+
+    std::vector<CCPoint> segs;
+    for (int i = 0; i < 8; ++i) {
+        CCPoint p1 = polyPath[i], p2 = polyPath[i + 1];
+        int steps = 6;
+        for (int s = 0; s < steps; ++s) {
+            float t = static_cast<float>(s) / static_cast<float>(steps);
+            segs.push_back(ccp(p1.x + (p2.x - p1.x) * t, p1.y + (p2.y - p1.y) * t));
+        }
+    }
+    int n = static_cast<int>(segs.size());
+    for (int i = 0; i + 1 < n; ++i) {
+        dn->drawSegment(segs[i], segs[i + 1], ps(1.4f), rgba4F(baseCyan, rgbEnabled ? 0.35f : 0.9f));
+    }
+
+    if (!rgbEnabled) return;
+
+    int wormLen = 16;
+    int head = static_cast<int>(std::fmod(travelPhase * static_cast<float>(n), static_cast<float>(n)));
+    if (head < 0) head += n;
+    for (int k = 0; k < wormLen; ++k) {
+        int idx = (head - k + n) % (n - 1);
+        float prog = 1.f - static_cast<float>(k) / static_cast<float>(wormLen);
+        ccColor3B c = hsvToRgbColor(std::fmod(travelPhase * 0.25f + prog * 0.3f, 1.f), 0.85f, 1.f);
+        dn->drawSegment(segs[idx], segs[idx + 1], ps(1.4f + 1.0f * prog), rgba4F(c, 0.3f + 0.7f * prog));
+    }
 }
 
-// Dibuja el marco exterior sci-fi usando el color de acento configurado en el tema
 inline void drawSciFiMainFrame(CCDrawNode* dn, ccColor3B accentCol) {
     if (!dn) return;
     dn->clear();
 
-    ccColor3B outerBg = lerpColor(COL_BG_OUTER, accentCol, 0.12f);
-    ccColor3B frameBg = lerpColor(COL_BG_FRAME, accentCol, 0.14f);
-    ccColor3B topEdge = lerpColor(accentCol, COL_TEXT_WHITE, 0.35f);
+    ccColor3B outerBg = lerpColor(COL_BG_OUTER, accentCol, 0.10f);
+    ccColor3B frameBg = lerpColor(COL_BG_FRAME, accentCol, 0.12f);
+    ccColor3B topEdge = lerpColor(accentCol, COL_TEXT_WHITE, 0.30f);
 
     drawRoundedRect(
         dn, 0.f, 0.f, PW, PH, ps(12.f),
         rgba4F(outerBg, 0.98f),
-        ps(3.f), rgba4F(accentCol, 0.9f)
+        ps(2.6f), rgba4F(accentCol, 0.9f)
     );
 
     ccColor4F bgGrid = rgba4F(lerpColor(outerBg, accentCol, 0.35f), 0.45f);
@@ -421,17 +463,17 @@ inline void drawSciFiMainFrame(CCDrawNode* dn, ccColor3B accentCol) {
     dn->drawPolygon(
         framePts, 8,
         rgba4F(frameBg, 0.96f),
-        ps(3.5f),
+        ps(3.0f),
         rgba4F(accentCol, 1.f)
     );
 
-    dn->drawSegment(ccp(xL + ch, yT), ccp(xR - ch, yT), ps(2.2f), rgba4F(topEdge, 0.85f));
-    dn->drawSegment(ccp(xL + ch, yB), ccp(xR - ch, yB), ps(2.0f), rgba4F(accentCol, 0.95f));
+    dn->drawSegment(ccp(xL + ch, yT), ccp(xR - ch, yT), ps(2.0f), rgba4F(topEdge, 0.85f));
+    dn->drawSegment(ccp(xL + ch, yB), ccp(xR - ch, yB), ps(1.8f), rgba4F(accentCol, 0.95f));
 
     ccColor4F blueLine = rgba4F(accentCol, 0.95f);
-    dn->drawSegment(ccp(px(18.f), py(892.f)), ccp(px(962.f), py(892.f)), ps(2.5f), blueLine);
-    dn->drawSegment(ccp(px(962.f), py(892.f)), ccp(px(995.f), py(982.f)), ps(2.5f), blueLine);
-    dn->drawSegment(ccp(px(18.f), py(982.f)), ccp(px(1485.f), py(982.f)), ps(2.5f), blueLine);
+    dn->drawSegment(ccp(px(18.f), py(892.f)), ccp(px(962.f), py(892.f)), ps(2.2f), blueLine);
+    dn->drawSegment(ccp(px(962.f), py(892.f)), ccp(px(995.f), py(982.f)), ps(2.2f), blueLine);
+    dn->drawSegment(ccp(px(18.f), py(982.f)), ccp(px(1485.f), py(982.f)), ps(2.2f), blueLine);
 }
 
 inline CCSprite* createFitSprite(char const* name, float w, float h, CCPoint pos) {
@@ -494,39 +536,6 @@ inline void drawGearShape(CCDrawNode* dn, CCPoint c, float r, ccColor4F col, ccC
     drawCircleShape(dn, c, r * 0.36f, holeCol, 0.f, holeCol, 14);
 }
 
-inline CCNode* createTopDiamondButtonNode() {
-    float w = ps(64.f), h = ps(68.f);
-    auto node = CCNode::create();
-    node->setContentSize({w, h});
-
-    if (auto spr = createFitSprite("hd-diamond.png"_spr, w, h, ccp(w * 0.5f, h * 0.5f))) {
-        node->addChild(spr, 2);
-        return node;
-    }
-
-    auto dn = CCDrawNode::create();
-    CCPoint outer[4] = {
-        ccp(w * 0.5f, h * 0.95f),
-        ccp(w * 0.08f, h * 0.5f),
-        ccp(w * 0.5f, h * 0.05f),
-        ccp(w * 0.92f, h * 0.5f)
-    };
-    dn->drawPolygon(
-        outer, 4,
-        rgba4F(ccc3(0x0c, 0x3b, 0x8e), 0.96f),
-        ps(3.0f),
-        rgba4F(ccc3(0x52, 0xc8, 0xff), 1.f)
-    );
-    CCPoint topFacet[3] = {
-        ccp(w * 0.5f, h * 0.88f),
-        ccp(w * 0.16f, h * 0.5f),
-        ccp(w * 0.84f, h * 0.5f)
-    };
-    dn->drawPolygon(topFacet, 3, rgba4F(ccc3(0x38, 0xa8, 0xf8), 0.85f), 0.f, ccc4f(0, 0, 0, 0));
-    node->addChild(dn);
-    return node;
-}
-
 inline CCNode* createRobotMascotNode(bool isHeaderMascot) {
     float w = isHeaderMascot ? ps(220.f) : ps(72.f);
     float h = isHeaderMascot ? ps(140.f) : ps(54.f);
@@ -550,18 +559,6 @@ inline CCNode* createRobotMascotNode(bool isHeaderMascot) {
     float rh = isHeaderMascot ? ps(86.f) : ps(38.f);
 
     drawRoundedRect(
-        dn, cx - rw * 0.64f, cy - rh * 0.28f, rw * 0.16f, rh * 0.56f, ps(6.f),
-        rgba4F(ccc3(0x00, 0xd8, 0xff), 1.f), ps(2.5f), rgba4F(ccc3(0x02, 0x10, 0x30), 1.f)
-    );
-    drawRoundedRect(
-        dn, cx + rw * 0.48f, cy - rh * 0.28f, rw * 0.16f, rh * 0.56f, ps(6.f),
-        rgba4F(ccc3(0x00, 0xa8, 0xf8), 1.f), ps(2.5f), rgba4F(ccc3(0x02, 0x10, 0x30), 1.f)
-    );
-    drawRoundedRect(
-        dn, cx - rw * 0.24f, cy + rh * 0.46f, rw * 0.48f, rh * 0.16f, ps(5.f),
-        rgba4F(ccc3(0x0c, 0x5c, 0xb8), 1.f), ps(2.5f), rgba4F(ccc3(0x02, 0x10, 0x30), 1.f)
-    );
-    drawRoundedRect(
         dn, cx - rw * 0.5f, cy - rh * 0.5f, rw, rh, ps(18.f),
         rgba4F(ccc3(0x28, 0xd8, 0xff), 1.f), ps(3.5f), rgba4F(ccc3(0x02, 0x12, 0x38), 1.f)
     );
@@ -569,27 +566,6 @@ inline CCNode* createRobotMascotNode(bool isHeaderMascot) {
         dn, cx - rw * 0.42f, cy - rh * 0.40f, rw * 0.84f, rh * 0.80f, ps(13.f),
         rgba4F(ccc3(0x02, 0x0c, 0x2c), 1.f), ps(2.f), rgba4F(ccc3(0x0a, 0x48, 0x9c), 1.f)
     );
-
-    ccColor4F eyeCol = rgba4F(ccc3(0x18, 0xf0, 0xff), 1.f);
-    float eyeR = rw * 0.12f;
-    float eyeY = cy - rh * 0.04f;
-    for (int side = -1; side <= 1; side += 2) {
-        float ex = cx + side * (rw * 0.18f);
-        for (int s = 0; s < 8; ++s) {
-            float a1 = 0.35f + (2.44f * s) / 8.f;
-            float a2 = 0.35f + (2.44f * (s + 1)) / 8.f;
-            dn->drawSegment(
-                ccp(ex + std::cos(a1) * eyeR, eyeY + std::sin(a1) * eyeR),
-                ccp(ex + std::cos(a2) * eyeR, eyeY + std::sin(a2) * eyeR),
-                ps(isHeaderMascot ? 4.5f : 2.5f),
-                eyeCol
-            );
-        }
-    }
-
-    if (isHeaderMascot) {
-        drawSparkle4(dn, ccp(w * 0.86f, h * 0.66f), ps(22.f), rgba4F(ccc3(0x98, 0xf8, 0xff), 1.f));
-    }
     node->addChild(dn);
     return node;
 }
@@ -622,12 +598,6 @@ inline void drawSidebarIcon(CCDrawNode* dn, int idx, CCPoint c, bool active) {
         }
         case 2: {
             drawRoundedRect(dn, c.x - r * 0.95f, c.y - r * 0.55f, r * 1.9f, r * 1.35f, ps(6.f), col, 0.f, col);
-            CCPoint tail[3] = {
-                ccp(c.x - r * 0.55f, c.y - r * 0.50f),
-                ccp(c.x - r * 0.80f, c.y - r * 0.95f),
-                ccp(c.x - r * 0.15f, c.y - r * 0.50f)
-            };
-            dn->drawPolygon(tail, 3, col, 0.f, col);
             for (int d = -1; d <= 1; ++d) {
                 dn->drawDot(ccp(c.x + d * r * 0.42f, c.y + r * 0.12f), ps(2.6f), hole);
             }
@@ -647,34 +617,33 @@ inline void drawSidebarIcon(CCDrawNode* dn, int idx, CCPoint c, bool active) {
     }
 }
 
+// Botones de la barra lateral en color entero limpio (sin degradado) e iluminacion media al seleccionarlos
 inline CCNode* createSidebarButtonNode(int idx, char const* title, bool active) {
     float w = ps(258.f), h = ps(80.f);
     auto node = CCNode::create();
     node->setContentSize({w, h});
 
     ccColor3B themeAcc = ThemeConfig::getMenuAccent();
-    ccColor3B actFill  = lerpColor(COL_BG_SIDE_ACT, themeAcc, 0.45f);
-    ccColor3B actTop   = lerpColor(actFill, COL_TEXT_WHITE, 0.32f);
-    ccColor3B idleFill = lerpColor(COL_BG_SIDE_IDLE, themeAcc, 0.20f);
+    // Color entero de iluminacion media cuando esta seleccionado
+    ccColor3B actFill  = lerpColor(COL_BG_SIDE_ACT, themeAcc, 0.35f);
+    ccColor3B actBord  = lerpColor(actFill, COL_FRAME_CYAN, 0.48f);
+    ccColor3B idleFill = COL_BG_SIDE_IDLE;
+    ccColor3B idleBord = ccc3(0x14, 0x32, 0x6e);
 
     auto dn = CCDrawNode::create();
     if (active) {
         drawRoundedRect(
             dn, 0.f, 0.f, w, h, ps(12.f),
-            rgba4F(actFill, 1.f),
-            ps(3.2f),
-            rgba4F(lerpColor(actFill, COL_TEXT_WHITE, 0.65f), 1.f)
-        );
-        drawRoundedRect(
-            dn, ps(4.f), h * 0.52f, w - ps(8.f), h * 0.42f, ps(8.f),
-            rgba4F(actTop, 0.45f), 0.f, ccc4f(0, 0, 0, 0)
+            rgba4F(actFill, 0.98f),
+            ps(2.0f),
+            rgba4F(actBord, 0.95f)
         );
     } else {
         drawRoundedRect(
             dn, 0.f, 0.f, w, h, ps(12.f),
             rgba4F(idleFill, 0.95f),
-            ps(2.2f),
-            rgba4F(lerpColor(idleFill, themeAcc, 0.55f), 0.95f)
+            ps(1.6f),
+            rgba4F(idleBord, 0.90f)
         );
     }
 
@@ -684,7 +653,7 @@ inline CCNode* createSidebarButtonNode(int idx, char const* title, bool active) 
     };
     int sbIdx = (idx >= 0 && idx < 5) ? idx : 0;
     if (auto ico = createFitSprite(SB_ICONS[sbIdx], ps(42.f), ps(42.f), ccp(ps(52.f), h * 0.5f))) {
-        ico->setColor(active ? COL_TEXT_WHITE : lerpColor(ccc3(0x67, 0x98, 0xf0), themeAcc, 0.35f));
+        ico->setColor(active ? COL_TEXT_WHITE : ccc3(0x67, 0x98, 0xf0));
         node->addChild(ico, 2);
     } else {
         drawSidebarIcon(dn, idx, ccp(ps(52.f), h * 0.5f), active);
@@ -702,7 +671,7 @@ inline CCNode* createSidebarButtonNode(int idx, char const* title, bool active) 
 }
 
 inline CCNode* createModeIconNode(int modeIdx) {
-    float boxW = ps(104.f), boxH = ps(84.f);
+    float boxW = ps(96.f), boxH = ps(76.f);
     auto holder = CCNode::create();
     holder->setContentSize({boxW, boxH});
 
@@ -720,131 +689,16 @@ inline CCNode* createModeIconNode(int modeIdx) {
     CCPoint c = ccp(boxW * 0.5f, boxH * 0.5f);
     ccColor4F col = rgba4F(m.borderColor, 1.f);
     ccColor4F bg = rgba4F(m.bgColor, 1.f);
-    float r = ps(30.f);
-
-    switch (modeIdx) {
-        case 0: {
-            drawRoundedRect(dn, c.x - r * 0.85f, c.y - r * 0.65f, r * 1.1f, r * 1.1f, ps(4.f), bg, ps(3.f), col);
-            drawRoundedRect(dn, c.x - r * 0.45f, c.y - r * 0.25f, r * 1.1f, r * 1.1f, ps(4.f), bg, ps(3.f), col);
-            dn->drawSegment(ccp(c.x + r * 0.8f, c.y - r * 0.55f), ccp(c.x + r * 0.8f, c.y - r * 0.15f), ps(2.5f), col);
-            dn->drawSegment(ccp(c.x + r * 0.6f, c.y - r * 0.35f), ccp(c.x + r * 1.0f, c.y - r * 0.35f), ps(2.5f), col);
-            break;
-        }
-        case 1: {
-            drawRoundedRect(dn, c.x - r, c.y - r * 0.75f, r * 2.f, r * 1.5f, ps(5.f), bg, ps(3.5f), col);
-            dn->drawSegment(ccp(c.x + r * 0.15f, c.y - r * 0.75f), ccp(c.x + r * 0.15f, c.y + r * 0.75f), ps(2.8f), col);
-            dn->drawSegment(ccp(c.x - r, c.y), ccp(c.x + r * 0.15f, c.y), ps(2.8f), col);
-            break;
-        }
-        case 2: {
-            drawGearShape(dn, ccp(c.x + r * 0.12f, c.y + r * 0.05f), r * 0.85f, col, bg);
-            drawSparkle4(dn, ccp(c.x - r * 0.65f, c.y - r * 0.45f), r * 0.42f, col);
-            break;
-        }
-        case 3: {
-            drawRoundedRect(dn, c.x - r * 1.15f, c.y - r * 0.68f, r * 1.35f, r * 1.35f, ps(4.f), bg, ps(3.2f), col);
-            drawSparkle4(dn, ccp(c.x + r * 0.75f, c.y), r * 0.72f, col);
-            break;
-        }
-        case 4: {
-            float s = r * 0.88f;
-            CCPoint topP = ccp(c.x, c.y + s);
-            CCPoint botP = ccp(c.x, c.y - s);
-            CCPoint lTop = ccp(c.x - s * 0.86f, c.y + s * 0.5f);
-            CCPoint rTop = ccp(c.x + s * 0.86f, c.y + s * 0.5f);
-            CCPoint lBot = ccp(c.x - s * 0.86f, c.y - s * 0.5f);
-            CCPoint rBot = ccp(c.x + s * 0.86f, c.y - s * 0.5f);
-            CCPoint hex[6] = {topP, rTop, rBot, botP, lBot, lTop};
-            dn->drawPolygon(hex, 6, bg, ps(3.2f), col);
-            dn->drawSegment(c, topP, ps(2.2f), col);
-            dn->drawSegment(c, lBot, ps(2.2f), col);
-            dn->drawSegment(c, rBot, ps(2.2f), col);
-            break;
-        }
-        case 5: {
-            drawCircleShape(dn, c, r * 0.78f, bg, ps(3.5f), col, 20);
-            dn->drawDot(c, ps(3.f), col);
-            break;
-        }
-        case 6: {
-            CCPoint arr[3] = {
-                ccp(c.x - r * 0.2f, c.y + r * 0.75f),
-                ccp(c.x + r * 0.75f, c.y),
-                ccp(c.x - r * 0.2f, c.y - r * 0.75f)
-            };
-            dn->drawPolygon(arr, 3, bg, ps(3.2f), col);
-            break;
-        }
-        case 7: {
-            drawRoundedRect(dn, c.x - r * 0.95f, c.y - r * 0.65f, r * 1.9f, r * 1.3f, ps(5.f), bg, ps(3.2f), col);
-            CCPoint play[3] = {
-                ccp(c.x - r * 0.22f, c.y + r * 0.35f),
-                ccp(c.x + r * 0.38f, c.y),
-                ccp(c.x - r * 0.22f, c.y - r * 0.35f)
-            };
-            dn->drawPolygon(play, 3, col, 0.f, col);
-            break;
-        }
-        default: {
-            drawCircleShape(dn, ccp(c.x, c.y + r * 0.12f), r * 0.58f, bg, ps(3.2f), col, 18);
-            drawRoundedRect(dn, c.x - r * 0.28f, c.y - r * 0.72f, r * 0.56f, r * 0.26f, ps(2.f), col, 0.f, col);
-            break;
-        }
-    }
+    float r = ps(26.f);
+    drawRoundedRect(dn, c.x - r, c.y - r * 0.7f, r * 2.f, r * 1.4f, ps(4.f), bg, ps(2.5f), col);
     holder->addChild(dn);
     return holder;
 }
 
 inline void drawBottomBarIcon(CCDrawNode* dn, int idx, CCPoint c) {
     ccColor4F col = rgba4F(ccc3(0x52, 0xa8, 0xf8), 1.f);
-    ccColor4F dark = rgba4F(COL_BG_BOTTOM, 1.f);
     float r = ps(15.f);
-
-    switch (idx) {
-        case 0: {
-            CCPoint pts[10];
-            const float pi = 3.14159265f;
-            for (int i = 0; i < 10; ++i) {
-                float rad = (i % 2 == 0) ? r * 1.05f : r * 0.45f;
-                float a = pi * 0.5f + i * (pi / 5.f);
-                pts[i] = ccp(c.x + std::cos(a) * rad, c.y + std::sin(a) * rad);
-            }
-            dn->drawPolygon(pts, 10, col, 0.f, col);
-            break;
-        }
-        case 1: {
-            drawRoundedRect(dn, c.x - r * 1.1f, c.y - r * 0.7f, r * 1.02f, r * 1.4f, ps(2.f), col, 0.f, col);
-            drawRoundedRect(dn, c.x + r * 0.08f, c.y - r * 0.7f, r * 1.02f, r * 1.4f, ps(2.f), col, 0.f, col);
-            dn->drawSegment(ccp(c.x - r * 0.85f, c.y + r * 0.25f), ccp(c.x - r * 0.25f, c.y + r * 0.25f), ps(1.5f), dark);
-            dn->drawSegment(ccp(c.x - r * 0.85f, c.y - r * 0.15f), ccp(c.x - r * 0.25f, c.y - r * 0.15f), ps(1.5f), dark);
-            dn->drawSegment(ccp(c.x + r * 0.25f, c.y + r * 0.25f), ccp(c.x + r * 0.85f, c.y + r * 0.25f), ps(1.5f), dark);
-            dn->drawSegment(ccp(c.x + r * 0.25f, c.y - r * 0.15f), ccp(c.x + r * 0.85f, c.y - r * 0.15f), ps(1.5f), dark);
-            break;
-        }
-        case 2: {
-            drawRoundedRect(dn, c.x - r * 1.05f, c.y - r * 0.70f, r * 2.1f, r * 1.25f, ps(3.f), col, 0.f, col);
-            drawRoundedRect(dn, c.x - r * 1.05f, c.y + r * 0.35f, r * 0.9f, r * 0.42f, ps(2.f), col, 0.f, col);
-            break;
-        }
-        case 3: {
-            drawRoundedRect(dn, c.x - r * 1.05f, c.y - r * 0.55f, r * 2.1f, r * 0.85f, ps(5.f), col, 0.f, col);
-            drawCircleShape(dn, ccp(c.x - r * 0.35f, c.y + r * 0.15f), r * 0.58f, col, 0.f, col, 14);
-            drawCircleShape(dn, ccp(c.x + r * 0.30f, c.y + r * 0.05f), r * 0.48f, col, 0.f, col, 14);
-            dn->drawSegment(ccp(c.x, c.y - r * 0.30f), ccp(c.x, c.y + r * 0.30f), ps(2.2f), dark);
-            dn->drawSegment(ccp(c.x - r * 0.30f, c.y), ccp(c.x + r * 0.30f, c.y), ps(2.2f), dark);
-            break;
-        }
-        default: {
-            drawCircleShape(dn, c, r * 0.88f, ccc4f(0, 0, 0, 0), ps(2.8f), col, 18);
-            CCPoint tip[3] = {
-                ccp(c.x + r * 0.25f, c.y + r * 1.15f),
-                ccp(c.x + r * 0.95f, c.y + r * 0.75f),
-                ccp(c.x + r * 0.25f, c.y + r * 0.40f)
-            };
-            dn->drawPolygon(tip, 3, col, 0.f, col);
-            break;
-        }
-    }
+    drawCircleShape(dn, c, r * 0.8f, col, 0.f, col, 14);
 }
 
 inline CCSprite* createBottomBarIconSprite(int idx, CCPoint pos) {
@@ -858,19 +712,19 @@ inline CCSprite* createBottomBarIconSprite(int idx, CCPoint pos) {
     return spr;
 }
 
-// Crea un boton estilizado nativo acorde al menu (reemplaza los botones grandes por defecto de GD)
+// Boton moderno plano (color entero sin degradado y con borde fino sutil)
 inline CCNode* makeCustomMenuBtn(
     char const* labelText, float w, float h,
-    ccColor3B fillCol, ccColor3B borderCol, float fontScale = 0.30f
+    ccColor3B fillCol, ccColor3B borderCol, float fontScale = 0.28f
 ) {
     auto node = CCNode::create();
     node->setContentSize({w, h});
 
     auto dn = CCDrawNode::create();
-    drawRoundedRectWithSoftGradient(
-        dn, 0.f, 0.f, w, h, 5.f,
-        fillCol, borderCol, 0.96f,
-        1.5f, rgba4F(borderCol, 1.f)
+    drawRoundedRect(
+        dn, 0.f, 0.f, w, h, 4.f,
+        rgba4F(fillCol, 0.96f),
+        0.9f, rgba4F(borderCol, 0.78f)
     );
     node->addChild(dn, 1);
 

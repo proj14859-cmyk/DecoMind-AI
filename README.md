@@ -1,4 +1,4 @@
-# Manual Oficial de DecoMind AI (v0.3.12)
+# Manual Oficial de DecoMind AI (v0.3.2-alpha)
 
 **DecoMind AI** es un asistente interactivo de inteligencia artificial diseñado de forma nativa para el editor de niveles de **Geometry Dash 2.2081** sobre **Geode SDK v5.11.2**. Permite generar estructuras, construir layouts jugables, añadir decoración, diseñar bloques personalizados, configurar triggers automáticos, crear transiciones, aplicar efectos avanzados y obtener sugerencias de diseño directamente desde una interfaz sci-fi integrada en el editor.
 
@@ -163,6 +163,16 @@ El proyecto ya incluye integrado el proveedor **`groq`** en `Server/mod_python_a
    ```
 4. En Geometry Dash, abre **DecoMind AI $\rightarrow$ AJUSTES**, cambia el origen a **`SERVIDOR HTTP`** y envía cualquier instrucción desde `CHAT / COMANDO`.
 
+### 7.2.1. Catálogo de objetos (IDs que la IA puede usar)
+La IA solo puede colocar objetos que existan en el catálogo; cualquier otro ID se descarta.
+
+- `Server/data/catalog_curated.json`: IDs de uso común (bloque, picos, portales, velocidades, pads, orbes, triggers). Es editable: si un ID no coincide en tu versión del juego, corrígelo ahí.
+- `Server/data/catalog_game.txt`: catálogo **completo** del juego (líneas `id|sprite`). Se genera solo: con el servidor activo y Origen = `server`, escribe **`/catalogo`** en `CHAT / COMANDO` y pulsa enviar. El mod lee la tabla interna de objetos de GD y la sube al servidor (no gasta peticiones de IA).
+- Con el catálogo del juego, el servidor clasifica cada objeto por el nombre de su sprite (`solid`, `hazard`, `deco`, ...). Los modos de decoración solo pueden usar `deco`; los modos de layout pueden usar bloques, picos, portales, pads y orbes.
+- Sin `catalog_game.txt` los modos de decoración no tienen IDs y la IA te pedirá escribir `/catalogo`.
+
+Propiedades opcionales por objeto (`props`, validadas por rango): color 21/22, z-layer 24, z-order 25, grupo 57, grupo objetivo 51, mover 28/29, duración 10, canal 23, RGB 7/8/9, opacidad 35.
+
 ### 7.3. Añadir un Nuevo Proveedor de IA (OpenAI, Gemini, Claude, Ollama, etc.)
 En `Server/mod_python_api/providers.py` tienes la clase base `TemplateProvider`:
 1. Copia `TemplateProvider` o crea un archivo nuevo en `Server/mod_python_api/`.
@@ -182,6 +192,7 @@ Para proteger siempre tu nivel en el editor, existen dos filtros de validación 
 - **Rango de IDs de objeto**: solo se aceptan IDs válidos de Geometry Dash (`1 <= id <= 4600`).
 - **Coordenadas seguras**: se descartan valores no numéricos (`NaN`/`Inf`) o fuera de los límites del lienzo del editor (`-240 <= x <= 240000`, `-240 <= y <= 6000`).
 - **Protección de jugabilidad por modo**: en modos puramente decorativos (`deco`, `transiciones`, `efectos`, `triggers`), el proveedor filtra picos y portales peligrosos para no arruinar tu gameplay, y en el modo `ideas` se bloquea cualquier inserción de objetos.
+- **Catálogo cerrado**: el servidor solo acepta IDs del catálogo y solo de las categorías que el modo permite. El mod repite el filtro de picos, portales, velocidades, pads y orbes en los modos que no son de layout.
 - **Límite por lote**: máximo `2000` objetos validados por operación en el cliente (`300` por defecto en `GroqProvider`) para evitar congelamientos del editor.
 
 ---
@@ -192,7 +203,7 @@ Para proteger siempre tu nivel en el editor, existen dos filtros de validación 
 DecoMind-AI-main/
 ├── .github/workflows/main.yml      # Compilación automática multiplataforma (Windows, Android32, Android64)
 ├── CMakeLists.txt                  # Configuración de compilación CMake + Geode SDK
-├── mod.json                        # Manifiesto Geode v5.11.2 (versión v0.3.12, recursos y ajustes)
+├── mod.json                        # Manifiesto Geode v5.11.2 (versión v0.3.2-alpha, recursos y ajustes)
 ├── logo.png                        # Logo oficial del mod en formato cuadrado 512x512 RGBA
 ├── About.md                        # Descripción corta para el visor de mods de Geode
 ├── CHANGELOG.md                    # Registro histórico detallado de todas las versiones
