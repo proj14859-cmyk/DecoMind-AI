@@ -1,7 +1,16 @@
 // ===========================================================================
-// DecoMind AI v0.3.2-alpha - Menu Interactivo Nativo para Geometry Dash
+// DecoMind AI v0.3.4-alpha - Menu Interactivo Nativo para Geometry Dash
 //
-// Parche y modificacion del diseno v0.3.2-alpha:
+// Novedades v0.3.4-alpha:
+//   - Selector de color nativo oficial de GD (OfficialColorPickerPopup) usando
+//     CCControlColourPicker (CCControlHuePicker + CCControlSaturationBrightnessPicker),
+//     vistas previas con whiteSquare60_001.png, entradas R/G/B/HEX sincronizadas
+//     sin recursión y botones COPY/PASTE/DEFAULT/OK (verificado con libcocos2dcpp.so).
+//   - Boton flotante del editor (DragButton en EditorButton.hpp) con ~55% de
+//     opacidad (50%-60% de transparencia), movible al mantener pulsado y arrastrar
+//     con dedo o raton (guardando btn-x y btn-y), y apertura del menu al picar una vez.
+//
+// Parche y modificacion del diseno v0.3.4-alpha:
 //   - Selector de colores circular oficial del estilo del editor de GD
 //     (rueda circular de matiz + disco central S/V + R/G/B + HEX + Copy/Paste/Default/OK),
 //     eliminando el titulo "PALETA DEL MENU INTERACTIVO".
@@ -27,6 +36,7 @@
 #include <Geode/ui/TextInput.hpp>
 
 #include "AIClient.hpp"
+#include "EditorButton.hpp"
 #include "HistoryManager.hpp"
 #include "LevelExecutor.hpp"
 #include "LevelValidator.hpp"
@@ -36,23 +46,7 @@
 using namespace geode::prelude;
 using namespace decomind;
 
-namespace {
-
-static const char* SIDEBAR_NAMES[5] = {
-    "INICIO", "MODOS", "CHAT", "ESTADISTICAS", "AJUSTES"
-};
-
-static const char* BOTTOM_NAMES[5] = {
-    "FAVORITOS", "TUTORIALES", "MIS NIVELES", "GUARDAR", "REINICIAR"
-};
-
-static void fitBMFontLabel(CCLabelBMFont* lbl, std::string const& text, float maxW, float scale) {
-    if (!lbl) return;
-    std::string clean = sanitizeForGD(text);
-    lbl->setString(clean.c_str());
-    lbl->setScale(scale);
-    lbl->limitLabelWidth(maxW, scale, 0.12f);
-}
+namespace decomind {
 
 // ===========================================================================
 // Clase base para ventanas secundarias
@@ -121,6 +115,28 @@ protected:
         return ui::makeCustomMenuBtn(text, w, h, fillCol, borderCol, 0.28f);
     }
 };
+
+} // namespace decomind
+
+#include "OfficialColorPickerPopup.hpp"
+
+namespace {
+
+static const char* SIDEBAR_NAMES[5] = {
+    "INICIO", "MODOS", "CHAT", "ESTADISTICAS", "AJUSTES"
+};
+
+static const char* BOTTOM_NAMES[5] = {
+    "FAVORITOS", "TUTORIALES", "MIS NIVELES", "GUARDAR", "REINICIAR"
+};
+
+static void fitBMFontLabel(CCLabelBMFont* lbl, std::string const& text, float maxW, float scale) {
+    if (!lbl) return;
+    std::string clean = sanitizeForGD(text);
+    lbl->setString(clean.c_str());
+    lbl->setScale(scale);
+    lbl->limitLabelWidth(maxW, scale, 0.12f);
+}
 
 // ===========================================================================
 // Selector de Colores Circular Estilo Editor Oficial de Geometry Dash (Imagen 2)
@@ -926,7 +942,7 @@ public:
 };
 
 // ===========================================================================
-// Menu Principal de DecoMind AI v0.3.2-alpha
+// Menu Principal de DecoMind AI v0.3.4-alpha
 // ===========================================================================
 class DecoMindPopup : public Popup {
 protected:
@@ -1090,6 +1106,11 @@ protected:
             );
         }
         this->buildSidebar();
+        if (auto ui = EditorUI::get()) {
+            if (auto btn = typeinfo_cast<DragButton*>(ui->getChildByID("decomind-menu"_spr))) {
+                btn->refreshTheme();
+            }
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -1500,19 +1521,18 @@ protected:
         int limit = Mod::get()->getSavedValue<int>("limit", 20);
         int total = Mod::get()->getSavedValue<int>("total", 0);
         std::string modeName = (m_selectedMode >= 0) ? MODES[m_selectedMode].name : "Ninguno";
-        std::string lvlName = LevelExecutor::getLevelTitle(m_lel);
-        int lvlObjs = LevelExecutor::getCurrentObjectCount(m_lel);
+        EditorContextSnapshot ctx = LevelExecutor::scanEditorContext(m_lel);
 
         std::string rows[7] = {
-            "Origen configurado: " + std::string(origin == "local" ? "Local (modo de prueba sin red)" : "Servidor HTTP (Proveedor IA)"),
+            "Origen configurado: " + std::string(origin == "local" ? "Local Contextual (sin red)" : "Servidor HTTP (Proveedor IA)"),
             "Modo activo seleccionado: " + modeName,
             origin == "local"
                 ? fmt::format("Cuota del servidor: {} / {} (origen local no consume cuota)", used, limit)
                 : fmt::format("Limite diario del servidor: {} / {} peticiones", used, limit),
-            fmt::format("Peticiones realizadas en esta sesion: {}", m_sessionRequests),
-            fmt::format("Peticiones totales acumuladas: {}", total),
-            fmt::format("Objetos validados y colocados (sesion): {}", m_sessionPlacedObjects),
-            fmt::format("Nivel actual: {} ({} objetos en el editor)", lvlName, lvlObjs)
+            fmt::format("Peticiones sesion: {}  |  Total acumuladas: {}", m_sessionRequests, total),
+            fmt::format("Objetos colocados (sesion): {}  |  Seleccionados: {}", m_sessionPlacedObjects, ctx.selectedCount),
+            fmt::format("Grupos ocupados: {}  |  Siguiente libre: G{}", ctx.usedGroupsCompact, ctx.nextFreeGroup),
+            fmt::format("Colores ocupados: {}  |  Siguiente libre: C{} ({} obj)", ctx.usedColorsCompact, ctx.nextFreeColor, ctx.totalObjects)
         };
 
         for (int i = 0; i < 7; ++i) {
@@ -1626,7 +1646,7 @@ protected:
 
         auto pickColSpr = ui::makeCustomMenuBtn("Seleccionar", ps(154.f), ps(44.f), btnBg, btnBord, 0.26f);
         auto pickColBtn = CCMenuItemExt::createSpriteExtra(pickColSpr, [this](CCMenuItemSpriteExtra*) {
-            if (auto pop = GDColorPickerPopup::create(
+            if (auto pop = OfficialColorPickerPopup::create(
                 ThemeConfig::getMenuAccent(),
                 COL_FRAME_BLUE,
                 [this](ccColor3B chosen) {
@@ -2485,25 +2505,23 @@ class $modify(DecoMindEditorUI, EditorUI) {
     bool init(LevelEditorLayer* lel) {
         if (!EditorUI::init(lel)) return false;
 
-        CCNode* btnVisual = nullptr;
-        if (auto customSpr = CCSprite::create("editor-btn.png"_spr)) {
-            float targetSize = 34.f;
-            float s = std::min(targetSize / customSpr->getContentWidth(), targetSize / customSpr->getContentHeight());
-            customSpr->setScale(s);
-            btnVisual = customSpr;
-        } else {
-            btnVisual = ButtonSprite::create("IA", "bigFont.fnt", "GJ_button_02.png", 0.8f);
-        }
-
-        auto btn = CCMenuItemSpriteExtra::create(
-            btnVisual, this, menu_selector(DecoMindEditorUI::onOpenDecoMind)
-        );
-        auto menu = CCMenu::create();
-        menu->addChild(btn);
         auto win = CCDirector::get()->getWinSize();
-        menu->setPosition({win.width * 0.34f, win.height - 28.f});
-        menu->setID("decomind-menu"_spr);
-        this->addChild(menu, 100);
+        auto btn = DragButton::create(makeEditorButtonVisual(), [this] {
+            this->onOpenDecoMind(nullptr);
+        });
+        if (btn) {
+            auto sz = btn->getContentSize();
+            float halfW = sz.width * 0.5f;
+            float halfH = sz.height * 0.5f;
+            float savedX = Mod::get()->getSavedValue<float>("btn-x", win.width * 0.34f);
+            float savedY = Mod::get()->getSavedValue<float>("btn-y", win.height - 28.f);
+            btn->setPosition({
+                std::clamp(savedX, halfW, win.width - halfW),
+                std::clamp(savedY, halfH, win.height - halfH)
+            });
+            btn->setID("decomind-menu"_spr);
+            this->addChild(btn, 100);
+        }
         return true;
     }
 

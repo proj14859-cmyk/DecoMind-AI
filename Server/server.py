@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Servidor de DecoMind AI (v0.3.13).
+Servidor de DecoMind AI (v0.3.4-alpha).
 
 Corre en Termux o en un PC. Sin dependencias externas.
 

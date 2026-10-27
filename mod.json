@@ -6,11 +6,11 @@
 		"mac": "2.2081",
 		"ios": "2.2081"
 	},
-	"version": "v0.3.2-alpha",
+	"version": "v0.3.4-alpha",
 	"id": "thedaek.decomind-ai",
 	"name": "DecoMind-AI",
 	"developer": "TheDaek",
-	"description": "Asistente de IA interactivo para el editor de Geometry Dash",
+	"description": "Asistente de IA interactivo con percepcion de seleccion, grupos, colores, triggers, rueda oficial de color y boton flotante movible para el editor de Geometry Dash",
 	"resources": {
 		"sprites": [
 			"resources/*.png"
@@ -20,7 +20,7 @@
 		"mode": {
 			"type": "string",
 			"name": "Origen",
-			"description": "local = genera dentro del mod sin red (prueba). server = pide el nivel al servidor Python (Termux u otro celular/PC).",
+			"description": "local = genera dentro del mod sin red (contextual). server = pide el nivel al servidor Python (Termux u otro celular/PC).",
 			"default": "local",
 			"one-of": ["local", "server"]
 		},

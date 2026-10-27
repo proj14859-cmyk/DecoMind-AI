@@ -1,15 +1,16 @@
-"""Catalogo de objetos de GD para la IA.
+"""Catalogo de objetos de GD 2.2 para DecoMind AI (v0.3.4-alpha).
 
 Fuentes (se combinan):
-  1. data/catalog_curated.json  - IDs de uso comun (editable a mano).
+  1. data/catalog_curated.json  - IDs oficiales de uso comun (bloques, outlines,
+                                  rellenos, glow, detalles, portales, triggers).
   2. data/catalog_game.txt      - catalogo COMPLETO del juego (lineas "id|frame"),
                                   que el mod sube al servidor con el comando /catalogo.
 
 Cada objeto tiene una categoria:
   solid, hazard, portal, speed, pad, orb, trigger, deco
-Las categorias que afectan al gameplay (solid, hazard, portal, speed, pad, orb)
-solo se permiten en los modos de layout. Los modos de decoracion solo pueden
-usar `deco` (y `trigger` en triggers / transiciones / efectos).
+Las categorias que afectan al gameplay (hazard, portal, speed, pad, orb)
+solo se permiten en los modos de layout. Los modos de decoracion y estructuracion
+pueden usar `deco` y `trigger` para decorar estructuras y animar entradas/salidas.
 """
 import json
 import os
@@ -18,18 +19,81 @@ import re
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 GAMEPLAY_CATS = {"solid", "hazard", "portal", "speed", "pad", "orb"}
 
-# Categorias que cada modo puede colocar.
+# Categorias que cada modo puede colocar en v0.3.4-alpha.
+# - `deco` y `block_design` incluyen `trigger` para permitir animaciones de entrada/salida,
+#   pulsos y configuracion de canales de color pedidos por el usuario en la misma orden.
+# - `estructurar` ahora puede colocar bordes/rellenos/triggers de organizacion sobre la seleccion.
 MODE_CATS = {
     "layout":       {"solid", "hazard", "portal", "speed", "pad", "orb"},
-    "layout_deco":  {"solid", "hazard", "portal", "speed", "pad", "orb", "deco"},
-    "block_design": {"solid", "deco"},
-    "deco":         {"deco"},
+    "layout_deco":  {"solid", "hazard", "portal", "speed", "pad", "orb", "deco", "trigger"},
+    "block_design": {"solid", "deco", "trigger"},
+    "deco":         {"deco", "trigger"},
     "triggers":     {"trigger"},
     "transiciones": {"trigger", "deco"},
     "efectos":      {"trigger", "deco"},
-    "estructurar":  set(),
+    "estructurar":  {"deco", "trigger"},
     "ideas":        set(),
 }
+
+# Copia de seguridad de data/catalog_curated.json: se usa si ese archivo no existe,
+# para que la IA nunca se quede sin IDs aunque falte la carpeta data/.
+DEFAULT_CURATED = [
+    (1, "solid", "bloque basico"),
+    (8, "hazard", "pico"),
+    (39, "hazard", "pico pequeno"),
+    (103, "hazard", "pico mini"),
+    (392, "hazard", "pico minimo"),
+    (9, "hazard", "pinchos de suelo"),
+    (12, "portal", "portal cubo"),
+    (13, "portal", "portal nave"),
+    (47, "portal", "portal bola"),
+    (111, "portal", "portal ufo"),
+    (660, "portal", "portal wave"),
+    (745, "portal", "portal robot"),
+    (1331, "portal", "portal spider"),
+    (10, "portal", "portal gravedad normal"),
+    (11, "portal", "portal gravedad invertida"),
+    (45, "portal", "portal espejo activar"),
+    (46, "portal", "portal espejo desactivar"),
+    (99, "portal", "portal tamano normal"),
+    (101, "portal", "portal tamano mini"),
+    (286, "portal", "portal dual"),
+    (287, "portal", "portal dual desactivar"),
+    (200, "speed", "velocidad 0.5x"),
+    (201, "speed", "velocidad 1x"),
+    (202, "speed", "velocidad 2x"),
+    (203, "speed", "velocidad 3x"),
+    (1334, "speed", "velocidad 4x"),
+    (35, "pad", "pad amarillo"),
+    (67, "pad", "pad azul (gravedad)"),
+    (140, "pad", "pad rosa"),
+    (1332, "pad", "pad rojo"),
+    (36, "orb", "orbe amarillo"),
+    (84, "orb", "orbe azul (gravedad)"),
+    (141, "orb", "orbe rosa"),
+    (1022, "orb", "orbe verde"),
+    (1330, "orb", "orbe negro"),
+    (1333, "orb", "orbe rojo"),
+    (1704, "orb", "orbe dash verde"),
+    (1751, "orb", "orbe dash rosa"),
+    (899, "trigger", "trigger Color"),
+    (901, "trigger", "trigger Move"),
+    (1006, "trigger", "trigger Pulse"),
+    (1007, "trigger", "trigger Alpha"),
+    (1049, "trigger", "trigger Toggle"),
+    (1346, "trigger", "trigger Rotate"),
+    (2067, "trigger", "trigger Scale"),
+    (1347, "trigger", "trigger Follow"),
+    (1268, "trigger", "trigger Spawn"),
+    (1616, "trigger", "trigger Stop"),
+    # --- v0.3.4-alpha: IDs de la lista del changelog (sin verificar en el juego; /catalogo manda) ---
+    *[(i, "solid", "bloque estructural") for i in (2, 3, 4, 5, 6, 7, 62, 63, 64, 65, 66, 83, 90, 91, 144, 145, 160, 161, 192)],
+    *[(i, "deco", "borde") for i in (40, 41, 467, 468)],
+    *[(i, "deco", "relleno sin colision") for i in (211, 503, 918)],
+    *[(i, "deco", "halo / esquina de luz") for i in (504, 505, 1001, 1002)],
+    *[(i, "deco", "detalle geometrico / tecnologico") for i in (579, 580, 725, 919, 1140, 1249, 1250, 1585, 1587, 1705, 1706, 1707, 1755, 1888)],
+    (1933, "portal", "portal swing"),
+]
 
 _FAMILY_RE = re.compile(r"^(.*?)(?:_\d+)+$")
 _HAZARD_RE = re.compile(r"(spike|saw|blade|thorn|pit|monster|hazard)", re.I)
@@ -74,9 +138,16 @@ class Catalog:
             self._load_game(open(game, encoding="utf-8", errors="replace").read())
         cur = os.path.join(self.data_dir, "catalog_curated.json")
         if os.path.isfile(cur):
-            for e in json.load(open(cur, encoding="utf-8")).get("entries", []):
-                # lo curado manda sobre la clasificacion automatica
-                self.entries[int(e["id"])] = {"cat": e["cat"], "name": e["name"], "family": e["name"]}
+            curated = [(int(e["id"]), e["cat"], e["name"])
+                       for e in json.load(open(cur, encoding="utf-8")).get("entries", [])]
+        else:
+            if not getattr(Catalog, "_warned", False):
+                print(f"[aviso] No existe {cur}; uso el catalogo basico incluido en el codigo.")
+                Catalog._warned = True
+            curated = DEFAULT_CURATED
+        for oid, cat, name in curated:
+            # lo curado manda sobre la clasificacion automatica
+            self.entries[oid] = {"cat": cat, "name": name, "family": name}
 
     def _load_game(self, text: str):
         for line in text.splitlines():
@@ -110,7 +181,7 @@ class Catalog:
     def has_cat(self, cats) -> bool:
         return any(e["cat"] in cats for e in self.entries.values())
 
-    def describe(self, mode: str, max_chars: int = 5000) -> str:
+    def describe(self, mode: str, max_chars: int = 5500) -> str:
         """Texto compacto con los IDs que la IA puede usar en este modo."""
         cats = self.allowed_cats(mode)
         lines = []
