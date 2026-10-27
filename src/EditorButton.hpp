@@ -46,14 +46,14 @@ protected:
     static constexpr GLubyte ACTIVE_OPACITY = 225; // ~88% opacidad al mantener pulsado / arrastrar
     static constexpr float DRAG_THRESHOLD_PX = 6.5f;
 
-    bool isHierarchyVisible() const {
-        for (CCNode const* node = this; node != nullptr; node = node->getParent()) {
+    bool isHierarchyVisible() {
+        for (CCNode* node = this; node != nullptr; node = node->getParent()) {
             if (!node->isVisible()) return false;
         }
         return true;
     }
 
-    bool isModalOrPlaytestActive() const {
+    bool isModalOrPlaytestActive() {
         if (auto lel = LevelEditorLayer::get()) {
             if (lel->m_playbackMode == PlaybackMode::Playing) {
                 return true;

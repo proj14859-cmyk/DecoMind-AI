@@ -5,6 +5,12 @@ Todas las modificaciones notables realizadas en este proyecto están documentada
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
+## [0.3.5-alpha] - 2026-10-26 — Selector Oficial de Color de GD y Botón Flotante Movible del Editor
+- src/EditorButton.hpp: Se eliminó el calificador const en los métodos de visibilidad (isHierarchyVisible() e isModalOrPlaytestActive()) y se cambió el puntero a CCNode* no-const. En Cocos2d-x 2.2, getParent() e isVisible() no están declaradas como const,
+ lo que provocaba el fallo de compilación estricta de C++23 en Windows y Android.
+- src/OfficialColorPickerPopup.hpp: El selector de color nativo oficial de Geometry Dash basado en la rueda CCControlColourPicker y la estructura de ColorSelectPopup
+- src/EditorButton.hpp: El botón flotante circular movible (decomind::DragButton), con transparencia del ~55%, arrastre libre por pantalla y toque simple para abrir DecoMind.
+
 
 ## [0.3.4-alpha] - 2026-10-26 — Selector Oficial de Color de GD y Botón Flotante Movible del Editor
 
@@ -29,6 +35,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
   - **Corrección de punto de anclaje (`ignoreAnchorPointForPosition(false)` + `setAnchorPoint({0.5f, 0.5f})`)**: asegura que `getPosition()` y `setPosition()` representen el centro geométrico real del botón (`34x34`), evitando que se desplace `(+17, +17)` o se corte en los bordes superior y derecho.
   - **Prioridad táctil `-250` y bloqueo ante modales / Playtest**: reemplazada la prioridad `-600` por `-250` (por encima de `EditorUI` en `0` y sus `CCMenu` en `-128`, pero por debajo de cualquier popup `FLAlertLayer` / `Popup` que usa `ForcePrio` en `-501` o menor), además de comprobar visibilidad de toda la jerarquía de padres, ausencia de `FLAlertLayer` activos en la escena y que el editor no esté en `PlaybackMode::Playing`.
   - **Sincronización en vivo del borde con el tema**: añadido `DragButton::refreshTheme()` para que el anillo del botón flotante actualice su color al instante cuando se cambia el color del menú en `AJUSTES`.
+  - **Corrección de compatibilidad en Clang / NDK (`getParent()` e `isVisible()`)**: en Cocos2d-x 2.2 las funciones virtuales de `CCNode` no están marcadas como `const`, por lo que declarar `CCNode const*` en `isHierarchyVisible()` provocaba error de compilación estricta de C++23 en Windows y Android. Ajustado a puntero no-const `CCNode*`.
 
 ### 3. Versión Global y Documentación
 - Versión global actualizada a **`0.3.4-alpha`** (`v0.3.4-alpha` en `mod.json`, `0.3.4` en `CMakeLists.txt`, cabeceras de `src/`, `Server/`, `README.md` y `About.md`).
