@@ -1,8 +1,8 @@
 #pragma once
 // ===========================================================================
-// DecoMind AI v0.3.2-alpha - Motor de Renderizado Visual Nativo (Cocos2d-x)
+// DecoMind AI v0.3.4-alpha - Motor de Renderizado Visual Nativo (Cocos2d-x)
 //
-// Parche y modificacion del diseno v0.3.2-alpha:
+// Parche y modificacion del diseno v0.3.4-alpha:
 //   - Tarjetas de modos en color entero limpio (sin degradado escalonado).
 //   - Botones laterales y de accion en color entero con iluminacion media.
 //   - Contorno RGB tipo "gusano" (flujo luminoso trasladandose de A hacia B

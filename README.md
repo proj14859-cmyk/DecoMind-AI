@@ -1,4 +1,4 @@
-# Manual Oficial de DecoMind AI (v0.3.2-alpha)
+# Manual Oficial de DecoMind AI (v0.3.4-alpha)
 
 **DecoMind AI** es un asistente interactivo de inteligencia artificial diseñado de forma nativa para el editor de niveles de **Geometry Dash 2.2081** sobre **Geode SDK v5.11.2**. Permite generar estructuras, construir layouts jugables, añadir decoración, diseñar bloques personalizados, configurar triggers automáticos, crear transiciones, aplicar efectos avanzados y obtener sugerencias de diseño directamente desde una interfaz sci-fi integrada en el editor.
 
@@ -36,7 +36,11 @@ DecoMind AI separa su arquitectura en seis capas independientes para garantizar 
 
 ## 2. Acceso desde el Editor y Estructura del Menú
 
-Al abrir el editor de niveles de Geometry Dash (`EditorUI`), verás en la parte superior el **botón de DecoMind AI** (icono azul con martillo de construcción `resources/editor-btn.png`). Al pulsarlo se despliega el menú interactivo organizado en 5 zonas:
+Al abrir el editor de niveles de Geometry Dash (`EditorUI`), verás el **botón flotante circular de DecoMind AI** (`src/EditorButton.hpp` con `resources/editor-btn.png`), que cuenta con una **transparencia del 50%-60% (~55% de opacidad en reposo)** para no estorbar la vista del nivel:
+- **Picar una vez (toque corto)**: abre el menú interactivo de DecoMind AI.
+- **Mantener pulsado y mover el dedo o el ratón**: arrastra el botón libremente por toda la pantalla y guarda automáticamente su posición (`btn-x`, `btn-y`).
+
+Al abrir el menú se despliega la interfaz organizada en 5 zonas:
 
 - **Barra Superior**:
   - **Botón volver (flecha verde neón)**: cierra el menú de DecoMind AI y regresa al editor.
@@ -171,7 +175,15 @@ La IA solo puede colocar objetos que existan en el catálogo; cualquier otro ID 
 - Con el catálogo del juego, el servidor clasifica cada objeto por el nombre de su sprite (`solid`, `hazard`, `deco`, ...). Los modos de decoración solo pueden usar `deco`; los modos de layout pueden usar bloques, picos, portales, pads y orbes.
 - Sin `catalog_game.txt` los modos de decoración no tienen IDs y la IA te pedirá escribir `/catalogo`.
 
-Propiedades opcionales por objeto (`props`, validadas por rango): color 21/22, z-layer 24, z-order 25, grupo 57, grupo objetivo 51, mover 28/29, duración 10, canal 23, RGB 7/8/9, opacidad 35.
+Propiedades opcionales por objeto (`props`, validadas por rango en v0.3.4-alpha): color 21/22, z-layer 24, z-order 25, grupos múltiples 57 (ej. `"20.21.22"`), grupo objetivo 51, grupo centro 71, mover 28/29, easing 30 y rate 85, duración 10, canal 23, RGB 7/8/9, opacidad 35, rotación 68/69 y escala 150/151.
+
+### 7.2.2. Percepción Contextual del Nivel, Selección, Grupos y Colores (v0.3.4-alpha)
+En cada petición, el mod escanea automáticamente `LevelEditorLayer` y `EditorUI` y adjunta al servidor:
+- `SELECTION`: caja delimitadora (`bbox=minX,minY,maxX,maxY`), dimensiones en bloques (`WxH`) y lista de objetos seleccionados (`id@x,y...`).
+- `VIEWPORT`: objetos cercanos a la cámara actual cuando no hay selección activa.
+- `USED_GROUPS` y `FREE_GROUPS`: qué `Group IDs` (`1..9999`) están ocupados en el nivel (incluyendo objetos y triggers) y cuáles están libres.
+- `USED_COLORS` y `FREE_COLORS`: qué `Color IDs` (`1..999`) están ocupados (junto con su paleta RGB/Blending/Opacidad en `GJEffectManager`) y cuáles están libres.
+- Si pides rangos específicos (por ejemplo, *"genera una deco estilo neón para esta estructura seleccionada usando colores del 10 al 14, grupo de objetos del 20 al 25 y animación de entrada y salida"*), la IA usa exactamente esos rangos; si no los indicas, asigna automáticamente grupos y colores libres sin pisar los ocupados.
 
 ### 7.3. Añadir un Nuevo Proveedor de IA (OpenAI, Gemini, Claude, Ollama, etc.)
 En `Server/mod_python_api/providers.py` tienes la clase base `TemplateProvider`:
@@ -203,7 +215,7 @@ Para proteger siempre tu nivel en el editor, existen dos filtros de validación 
 DecoMind-AI-main/
 ├── .github/workflows/main.yml      # Compilación automática multiplataforma (Windows, Android32, Android64)
 ├── CMakeLists.txt                  # Configuración de compilación CMake + Geode SDK
-├── mod.json                        # Manifiesto Geode v5.11.2 (versión v0.3.2-alpha, recursos y ajustes)
+├── mod.json                        # Manifiesto Geode v5.11.2 (versión v0.3.4-alpha, recursos y ajustes)
 ├── logo.png                        # Logo oficial del mod en formato cuadrado 512x512 RGBA
 ├── About.md                        # Descripción corta para el visor de mods de Geode
 ├── CHANGELOG.md                    # Registro histórico detallado de todas las versiones
@@ -216,8 +228,11 @@ DecoMind-AI-main/
 │   ├── sb-*.png                    # 5 iconos HD de la barra lateral izquierda
 │   ├── bb-*.png                    # 5 iconos HD de la barra de herramientas inferior
 │   └── hd-*.png / ui-*.png         # Iconos HD de volver, diamante, avión de envío y reloj
+├── COMO-FUNCIONA.md                # Documentación técnica verificada contra libcocos2dcpp.so (ARM64)
 ├── src/                            # Código fuente C++20 modular del mod
-│   ├── main.cpp                    # Menú principal, animaciones, selector de color GD y ventanas modales
+│   ├── main.cpp                    # Menú principal, animaciones, integración del editor y ventanas modales
+│   ├── OfficialColorPickerPopup.hpp# Selector de color nativo oficial de GD (CCControlColourPicker + R/G/B/HEX)
+│   ├── EditorButton.hpp            # Botón flotante circular (50%-60% transp.) y movible por pantalla
 │   ├── UIRenderer.hpp              # Motor de dibujo Cocos2d-x, configuración de tema y efectos RGB
 │   ├── Modes.hpp                   # Definición de los 9 modos (ID, texto visible y preprompt interno)
 │   ├── AIClient.hpp                # Cliente asíncrono HTTP y generador local

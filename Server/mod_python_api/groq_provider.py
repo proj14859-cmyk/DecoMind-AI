@@ -13,6 +13,7 @@ import urllib.request
 
 from .catalog import Catalog
 from .prompts import build_system
+from .styles import style_block
 from .protocol import ApiReply, ApiRequest
 from .providers import Provider, register_provider
 
@@ -23,18 +24,27 @@ PREFERRED = ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "openai/gpt-oss-2
 
 # Rangos que tambien valida el mod (LevelValidator).
 MAX_X, MAX_Y = 200000, 4000
-NO_OBJECT_MODES = {"ideas", "estructurar"}
+NO_OBJECT_MODES = {"ideas"}
 # Claves de objeto GD permitidas en "props" y su rango (min, max).
 PROP_RANGES = {
     "7": (0, 255), "8": (0, 255), "9": (0, 255),      # R, G, B
-    "10": (0, 60),                                     # duracion
-    "21": (0, 1100), "22": (0, 1100), "23": (0, 1100),  # canales de color
-    "24": (-5, 5), "25": (-50, 50),                    # z-layer, z-order
+    "10": (0, 60), "45": (0, 60), "46": (0, 60), "47": (0, 60),  # duracion / fade in-hold-out
+    "21": (0, 1105), "22": (0, 1105), "23": (0, 1105),  # canales de color
+    "24": (-10, 15), "25": (-500, 500),                # z-layer, z-order
     "28": (-3000, 3000), "29": (-3000, 3000),          # mover X / Y
+    "30": (0, 18), "85": (0.1, 10),                    # easing / rate
     "35": (0, 1),                                      # opacidad
-    "51": (0, 9999), "57": (0, 9999),                  # grupo objetivo / grupo
+    "51": (0, 9999), "71": (0, 9999),                  # grupo objetivo / centro
+    "52": (0, 5), "20": (0, 9999), "61": (0, 9999),    # tipo objetivo, editor layers
+    "68": (-36000, 36000), "69": (-36000, 36000),      # rotar grados / vueltas
+    "150": (0.05, 20), "151": (0.05, 20),              # escala X / Y
+    "4": (0, 1), "5": (0, 1), "11": (0, 1), "17": (0, 1), "56": (0, 1),
+    "62": (0, 1), "64": (0, 1), "67": (0, 1), "87": (0, 1),  # flags
 }
-INT_PROPS = {"7", "8", "9", "21", "22", "23", "24", "25", "51", "57"}
+INT_PROPS = {"7", "8", "9", "21", "22", "23", "24", "25", "51", "71", "30", "52", "20", "61",
+             "4", "5", "11", "17", "56", "62", "64", "67", "87"}
+_GROUPS_RE = re.compile(r"^\d{1,4}(\.\d{1,4}){0,9}$")  # "57": "20.21.22"
+
 
 def _load_env_file():
     path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
@@ -88,6 +98,11 @@ def build_objects(raw, mode: str, max_objs: int, catalog: Catalog):
         if isinstance(props, dict):
             for k, v in props.items():
                 k = str(k)
+                if k == "57":  # grupos: entero o "20.21.22" (1..9999, maximo 10)
+                    g = str(v).strip()
+                    if _GROUPS_RE.match(g) and all(1 <= int(n) <= 9999 for n in g.split(".")):
+                        s += f",57,{g}"
+                    continue
                 if k not in PROP_RANGES:
                     continue
                 try:
@@ -116,7 +131,7 @@ class GroqProvider(Provider):
     def _chat(self, messages) -> str:
         body = json.dumps({
             "model": self.model, "messages": messages,
-            "temperature": 0.4, "max_tokens": 3000,
+            "temperature": 0.4, "max_tokens": 6000,
         }).encode("utf-8")
         req = urllib.request.Request(URL, data=body, headers={
             "Authorization": f"Bearer {self.key}",
@@ -125,7 +140,10 @@ class GroqProvider(Provider):
         })
         with urllib.request.urlopen(req, timeout=40) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-        return data["choices"][0]["message"]["content"]
+        choice = data["choices"][0]
+        text = choice["message"].get("content") or ""
+        print(f"[groq] modelo={self.model} finish={choice.get('finish_reason')} chars={len(text)}")
+        return text
 
     def _pick_available_model(self) -> bool:
         """Consulta /models y elige el primer modelo preferido disponible. True si cambio el modelo."""
@@ -144,14 +162,19 @@ class GroqProvider(Provider):
         if not self.key:
             return ApiReply("Falta la clave de Groq. Define GROQ_API_KEY en el servidor (ver README).")
         user = (f"Modo: {req.mode}\nNivel: {req.level or '(sin nombre)'}\n"
-                f"Instrucciones del modo: {req.context}\nPeticion del usuario: {req.prompt}")
+                f"Instrucciones del modo: {req.context}\n"
+                f"Contexto del nivel:\n{req.format_editor_perception()}\n"
+                f"Peticion del usuario: {req.prompt}")
         self.catalog.reload()  # recoge un catalogo nuevo subido por el mod sin reiniciar
         cats = self.catalog.allowed_cats(req.mode)
         note = ""
         if "deco" in cats and not self.catalog.game_loaded:
             note = ("AVISO: no hay catalogo del juego cargado, asi que no tienes IDs [deco]. "
                     "Dile al usuario que escriba /catalogo en el chat del mod.")
-        system = build_system(req.mode, self.max_objs, self.catalog.describe(req.mode), note)
+        style = style_block(req.prompt, req.mode, self.catalog)
+        if style:
+            print("[groq] estilo detectado en el pedido")
+        system = build_system(req.mode, self.max_objs, self.catalog.describe(req.mode), note, style)
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -183,12 +206,20 @@ class GroqProvider(Provider):
         try:
             data = extract_json(text)
         except ValueError:
-            return ApiReply("La IA no devolvio un formato valido. Intenta de nuevo con otra redaccion.")
+            print(f"[groq] respuesta sin JSON valido: {text[:300]!r}")
+            return ApiReply("La IA no devolvio un formato valido (o se quedo sin espacio). Intenta de nuevo con una peticion mas corta.")
 
         msg = str(data.get("message", "")).strip() or "Listo."
+        print(f"[groq] mensaje de la IA: {msg[:200]!r}")
         if req.mode in NO_OBJECT_MODES:
             return ApiReply(msg)
-        objs, dropped = build_objects(data.get("objects"), req.mode, self.max_objs, self.catalog)
+        raw_objs = data.get("objects")
+        objs, dropped = build_objects(raw_objs, req.mode, self.max_objs, self.catalog)
+        n_in = len(raw_objs) if isinstance(raw_objs, list) else 0
+        print(f"[groq] objetos: {n_in} recibidos, {objs.count(';')} validos, {dropped} descartados")
+        if dropped and n_in:
+            sample = [o.get("id") for o in raw_objs if isinstance(o, dict)][:8]
+            print(f"[groq] ids pedidos por la IA (primeros): {sample}")
         if dropped:
             msg += f" (Se descartaron {dropped} objetos no validos.)"
         if not objs:

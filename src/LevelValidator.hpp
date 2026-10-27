@@ -1,13 +1,17 @@
 #pragma once
 // ===========================================================================
-// DecoMind AI - Capa de Validacion de Operaciones
+// DecoMind AI v0.3.4-alpha - Capa de Validacion de Operaciones y Propiedades GD
 //
 // El modelo de IA o servidor puede proponer objetos/operaciones, pero el mod
-// valida estrictamente todos los parametros (IDs de objeto, coordenadas X/Y,
-// escalas, limites por lote y restricciones del modo) antes de tocar el nivel.
+// valida estrictamente todos los parametros: IDs oficiales de GD 2.2,
+// coordenadas X/Y, rotacion, escala, canales de color (21/22/23), capas Z
+// (20/24/25), grupos de objetos simples o multiples separados por punto (57),
+// y propiedades completas de triggers (Move, Alpha, Pulse, Color, Rotate,
+// Scale, Toggle, Spawn, Follow, Stop) antes de tocar el nivel.
 // ===========================================================================
 #include "Modes.hpp"
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <string>
@@ -78,13 +82,13 @@ public:
         return res;
     }
 
-    // Solo estos modos pueden colocar objetos que afectan al gameplay.
+    // Solo estos modos pueden colocar objetos con hitbox peligrosa o portales de gameplay.
     static bool modeAllowsGameplayObjects(std::string const& modeId) {
         return modeId == "layout" || modeId == "layout_deco" || modeId == "block_design";
     }
 
-    // Picos, portales, velocidades, pads y orbes (IDs comunes de GD). Segunda barrera:
-    // el servidor ya los filtra, pero el mod no se fia de nadie.
+    // Picos, portales, velocidades, pads y orbes con hitbox de gameplay.
+    // Segunda barrera: el servidor ya los filtra, pero el mod valida siempre en cliente.
     static bool isGameplayObjectId(int id) {
         static constexpr int IDS[] = {
             8, 9, 39, 103, 392,                        // picos
@@ -98,10 +102,35 @@ public:
         return false;
     }
 
+    // Valida una cadena de grupos de GD (clave 57), que puede ser un entero "12"
+    // o hasta 10 grupos separados por punto "12.13.14".
+    static bool isValidGroupDotString(std::string const& val) {
+        if (val.empty()) return false;
+        int groupCount = 0;
+        size_t pos = 0;
+        while (pos < val.size()) {
+            size_t dot = val.find('.', pos);
+            if (dot == std::string::npos) dot = val.size();
+            std::string part = val.substr(pos, dot - pos);
+            if (part.empty() || part.size() > 4) return false;
+            for (char c : part) {
+                if (!std::isdigit(static_cast<unsigned char>(c))) return false;
+            }
+            int gid = std::atoi(part.c_str());
+            if (gid < 1 || gid > 9999) return false;
+            ++groupCount;
+            if (groupCount > 10) return false;
+            pos = dot + 1;
+        }
+        return groupCount > 0;
+    }
+
 private:
     static bool isValidSingleObject(std::string const& objStr, bool gameplayAllowed) {
-        // Formato de objeto GD: k1,v1,k2,v2,...
-        // Clave 1 = ID de objeto, Clave 2 = X, Clave 3 = Y, Clave 32 = Escala
+        // Formato oficial de objeto GD (LevelString): k1,v1,k2,v2,...
+        // Clave 1 = ID de objeto, Clave 2 = X, Clave 3 = Y, Clave 6 = Rotacion,
+        // Clave 21/22 = Color 1/2, Clave 24/25 = Z-Layer/Z-Order, Clave 32 = Escala,
+        // Clave 57 = Grupos (ej. "10" o "10.11.12"), Claves de triggers (7..87).
         std::vector<std::string> tokens;
         size_t p = 0;
         while (p < objStr.size()) {
@@ -122,7 +151,7 @@ private:
         for (size_t i = 0; i + 1 < tokens.size(); i += 2) {
             int key = std::atoi(tokens[i].c_str());
             std::string const& val = tokens[i + 1];
-            if (val.empty()) return false;
+            if (key <= 0 || val.empty()) return false;
 
             if (key == 1) {
                 int id = std::atoi(val.c_str());
@@ -137,9 +166,70 @@ private:
                 float y = static_cast<float>(std::atof(val.c_str()));
                 if (!std::isfinite(y) || y < MIN_Y || y > MAX_Y) return false;
                 hasY = true;
-            } else if (key == 32) {
+            } else if (key == 4 || key == 5 || key == 11 || key == 17 || key == 36 ||
+                       key == 41 || key == 42 || key == 56 || key == 62 || key == 64 ||
+                       key == 67 || key == 70 || key == 87 || key == 100) {
+                // Propiedades booleanas (0 o 1): FlipX/Y, Touch/Spawn/Multi-Trigger, Blending, Don't Fade/Enter, Lock
+                int b = std::atoi(val.c_str());
+                if (b != 0 && b != 1) return false;
+            } else if (key == 6) {
+                float rot = static_cast<float>(std::atof(val.c_str()));
+                if (!std::isfinite(rot) || rot < -3600.f || rot > 3600.f) return false;
+            } else if (key == 7 || key == 8 || key == 9) {
+                int rgb = std::atoi(val.c_str());
+                if (rgb < 0 || rgb > 255) return false;
+            } else if (key == 10 || key == 45 || key == 46 || key == 47) {
+                // Duracion / Fade In / Hold / Fade Out (segundos)
+                float dur = static_cast<float>(std::atof(val.c_str()));
+                if (!std::isfinite(dur) || dur < 0.f || dur > 120.f) return false;
+            } else if (key == 20 || key == 61) {
+                int el = std::atoi(val.c_str());
+                if (el < 0 || el > 9999) return false;
+            } else if (key == 21 || key == 22 || key == 23 || key == 50) {
+                // Canales de color (1..1105)
+                int col = std::atoi(val.c_str());
+                if (col < 0 || col > 1105) return false;
+            } else if (key == 24) {
+                int zl = std::atoi(val.c_str());
+                if (zl < -10 || zl > 15) return false;
+            } else if (key == 25) {
+                int zo = std::atoi(val.c_str());
+                if (zo < -500 || zo > 500) return false;
+            } else if (key == 28 || key == 29) {
+                // Move X / Move Y (en unidades del editor)
+                float mv = static_cast<float>(std::atof(val.c_str()));
+                if (!std::isfinite(mv) || mv < -15000.f || mv > 15000.f) return false;
+            } else if (key == 30) {
+                // Easing (0..18)
+                int eas = std::atoi(val.c_str());
+                if (eas < 0 || eas > 18) return false;
+            } else if (key == 32 || key == 150 || key == 151) {
+                // Escala general / Scale X / Scale Y
                 float sc = static_cast<float>(std::atof(val.c_str()));
                 if (!std::isfinite(sc) || sc < 0.05f || sc > 20.f) return false;
+            } else if (key == 35) {
+                // Opacidad (0.0 .. 1.0)
+                float op = static_cast<float>(std::atof(val.c_str()));
+                if (!std::isfinite(op) || op < 0.f || op > 1.f) return false;
+            } else if (key == 51 || key == 71) {
+                // Target Group ID (51) / Center Group ID (71)
+                int gid = std::atoi(val.c_str());
+                if (gid < 0 || gid > 9999) return false;
+            } else if (key == 52 || key == 48) {
+                // Target Type (0=Channel/Group) / Pulse Mode (0=Color, 1=HSV)
+                int md = std::atoi(val.c_str());
+                if (md < 0 || md > 5) return false;
+            } else if (key == 57) {
+                // Group IDs asignados al objeto ("10" o "10.11.12")
+                if (!isValidGroupDotString(val)) return false;
+            } else if (key == 68 || key == 69) {
+                // Rotate Degrees / Times 360
+                float deg = static_cast<float>(std::atof(val.c_str()));
+                if (!std::isfinite(deg) || deg < -36000.f || deg > 36000.f) return false;
+            } else if (key == 85) {
+                // Easing Rate
+                float er = static_cast<float>(std::atof(val.c_str()));
+                if (!std::isfinite(er) || er < 0.1f || er > 10.f) return false;
             }
         }
         return hasId && hasX && hasY;

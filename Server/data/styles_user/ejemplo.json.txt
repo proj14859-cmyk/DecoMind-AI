@@ -1,0 +1,16 @@
+{
+  "id": "vaporwave",
+  "name": "Vaporwave",
+  "aliases": ["vaporwave", "vapor", "synthwave", "outrun"],
+  "mood": "atardecer retro-futurista con rosas y turquesas",
+  "palette": {"fondo": "#1a0b2e", "principal": "#ff4fd8", "acento": "#2de2e6", "detalle": "#ffe66d"},
+  "reglas": [
+    "Sol grande y semicircular en el fondo, con franjas horizontales.",
+    "Cuadricula en perspectiva en el suelo, lineas finas.",
+    "Maximo 3 colores: rosa, turquesa y un amarillo calido."
+  ],
+  "familias": ["circle", "line", "star"],
+  "composicion": ["1 circulo enorme (scale 3.5) al fondo cada ~900 unidades en x", "lineas horizontales finas repetidas bajo el sol"],
+  "triggers": ["Pulse rosa suave al ritmo"],
+  "evitar": ["colores verdes", "muchos objetos pequenos"]
+}

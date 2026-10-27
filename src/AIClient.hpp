@@ -1,12 +1,13 @@
 #pragma once
 // ===========================================================================
-// DecoMind AI - Capa de Comunicacion con el Servidor / Proveedor de IA
+// DecoMind AI v0.3.4-alpha - Capa de Comunicacion con el Servidor / Proveedor IA
 //
 // Desacopla la interfaz visual de la red y del proveedor de IA.
-// Construye las peticiones adjuntando internamente el preprompt del modo
-// (internalPrompt) sin exponerlo en la UI, gestiona estados de carga,
-// cancelacion y errores honestos cuando el servidor o proveedor no esta
-// disponible o pendiente de configuracion.
+// Construye las peticiones adjuntando internamente:
+//   - El preprompt del modo (CONTEXT)
+//   - El estado real del nivel, camara y objetos seleccionados (SELECTION / VIEWPORT)
+//   - Los Group IDs ocupados y libres (USED_GROUPS / FREE_GROUPS)
+//   - Los Color IDs ocupados y libres (USED_COLORS / FREE_COLORS)
 // ===========================================================================
 #include "LevelExecutor.hpp"
 #include "ObjectCatalog.hpp"
@@ -81,33 +82,23 @@ public:
         auto const& mode = MODES[safeIdx];
         std::string origin = getOriginMode();
 
-        // Modo local de demostracion / prueba sin red
+        // Modo local contextual (funciona sin red leyendo seleccion, grupos y colores del nivel)
         if (origin == "local") {
             AIResponseData res;
             res.ok = true;
             res.httpCode = 200;
             res.isLocalDemo = true;
             int secs = getLocalSections();
-            res.rawObjects = LevelExecutor::generateLocalDemoObjects(mode.id, secs);
-            if (std::string(mode.id) == "ideas") {
-                res.message = fmt::format(
-                    "[Modo Local - Prueba] Sugerencia para '{}': combina estructuras con contraste alto "
-                    "y usa triggers de pulso suave en los cambios de ritmo. (Conecta el servidor en Ajustes "
-                    "para respuestas de IA en tiempo real).",
-                    sanitizeForGD(userPrompt)
-                );
-            } else {
-                res.message = fmt::format(
-                    "[Modo Local - Prueba] Se generaron {} secciones de prueba para el modo {}. "
-                    "(Proveedor IA externo pendiente: cambia a 'Servidor' en Ajustes cuando tu servidor este activo).",
-                    secs, mode.name
-                );
-            }
+            std::string summaryMsg;
+            res.rawObjects = LevelExecutor::generateContextualLocalObjects(
+                lel, mode.id, userPrompt, secs, summaryMsg
+            );
+            res.message = sanitizeForGD(summaryMsg);
             if (onComplete) onComplete(res);
             return;
         }
 
-        // Modo servidor HTTP (Python / proveedor IA)
+        // Modo servidor HTTP (Python / proveedor IA con lectura completa del nivel y seleccion)
         std::string url = trimStr(getServerUrl());
         if (url.empty()) {
             AIResponseData res;
@@ -119,11 +110,13 @@ public:
         }
 
         auto req = web::WebRequest();
-        // Aqui se adjunta internalPrompt (preprompt interno del modo) sin mostrarlo en la interfaz
+        // Adjuntamos el preprompt del modo + el escaneo en vivo del nivel (seleccion, grupos y colores)
+        std::string editorContextLines = LevelExecutor::buildProtocolContextLines(lel);
         std::string payload =
             std::string("MODE:") + mode.id + "\n" +
             "CONTEXT:" + oneLineStr(mode.internalPrompt) + "\n" +
             "LEVEL:" + oneLineStr(LevelExecutor::getLevelTitle(lel)) + "\n" +
+            editorContextLines +
             "PROMPT:" + oneLineStr(sanitizeForGD(userPrompt)) + "\n";
 
         req.bodyString(payload);
