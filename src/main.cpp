@@ -942,6 +942,139 @@ public:
 };
 
 // ===========================================================================
+// Delegado de entrada de texto para el cuadro de CHAT / COMANDO:
+//   - Corrige el bug nativo de CCTextInputNode::onTextFieldInsertText (0x5a4498)
+//     donde cuando strlen(text) > 1 (autocompletado de teclado en Android,
+//     escritura rapida o caracteres multibyte UTF-8 como la ñ), RobTop llamaba
+//     a setString(filtered) borrando todo el texto anterior y cerrando el teclado.
+//   - Normaliza caracteres en espanol (ñ, Ñ, tildes á/é/í/ó/ú/ü, ¿, ¡) tanto en
+//     UTF-8 como en Latin-1/Windows-1252 para que nunca sean rechazados.
+// ===========================================================================
+class PromptTextFieldDelegate : public cocos2d::CCTextFieldDelegate {
+public:
+    TextInput* m_textInput = nullptr;
+    CCTextInputNode* m_inputNode = nullptr;
+    cocos2d::CCTextFieldTTF* m_textField = nullptr;
+    cocos2d::CCTextFieldDelegate* m_origDelegate = nullptr;
+    std::function<void(std::string const&)> m_onTextUpdated;
+    bool m_internalSync = false;
+
+    void bind(
+        TextInput* ti,
+        CCTextInputNode* inNode,
+        cocos2d::CCTextFieldTTF* tf,
+        cocos2d::CCTextFieldDelegate* origDel,
+        std::function<void(std::string const&)> onUpdated
+    ) {
+        m_textInput = ti;
+        m_inputNode = inNode;
+        m_textField = tf;
+        m_origDelegate = origDel;
+        m_onTextUpdated = std::move(onUpdated);
+        if (m_textField) {
+            m_textField->setDelegate(this);
+        }
+    }
+
+    void unbind() {
+        if (m_textField && m_origDelegate) {
+            m_textField->setDelegate(m_origDelegate);
+        }
+        m_textField = nullptr;
+        m_origDelegate = nullptr;
+        m_inputNode = nullptr;
+        m_textInput = nullptr;
+    }
+
+    bool onTextFieldAttachWithIME(cocos2d::CCTextFieldTTF* sender) override {
+        if (m_origDelegate && m_origDelegate != this) {
+            return m_origDelegate->onTextFieldAttachWithIME(sender);
+        }
+        return false;
+    }
+
+    bool onTextFieldDetachWithIME(cocos2d::CCTextFieldTTF* sender) override {
+        if (m_origDelegate && m_origDelegate != this) {
+            return m_origDelegate->onTextFieldDetachWithIME(sender);
+        }
+        return false;
+    }
+
+    bool onTextFieldInsertText(
+        cocos2d::CCTextFieldTTF* sender,
+        char const* text,
+        int nLen,
+        cocos2d::enumKeyCodes keyCodes
+    ) override {
+        if (!m_textInput || !m_inputNode || !text || nLen <= 0) {
+            return true;
+        }
+        if (text[0] == '\n' || text[0] == '\r') {
+            return true;
+        }
+        if (keyCodes == cocos2d::KEY_Home || keyCodes == cocos2d::KEY_End ||
+            keyCodes == cocos2d::KEY_Left || keyCodes == cocos2d::KEY_Right) {
+            return true;
+        }
+
+        std::string rawChunk(text, static_cast<size_t>(nLen));
+        std::string norm = normalizePromptInputWithEnye(rawChunk);
+        if (norm.empty()) {
+            return true;
+        }
+
+        std::string cur = m_textInput->getString();
+        constexpr size_t kMaxChars = 160;
+        if (cur.size() >= kMaxChars) {
+            return true;
+        }
+        if (cur.size() + norm.size() > kMaxChars) {
+            norm.resize(kMaxChars - cur.size());
+        }
+        cur += norm;
+
+        m_internalSync = true;
+        m_textInput->setString(cur);
+        m_internalSync = false;
+
+        if (m_onTextUpdated) {
+            m_onTextUpdated(cur);
+        }
+        return true;
+    }
+
+    bool onTextFieldDeleteBackward(
+        cocos2d::CCTextFieldTTF* sender,
+        char const* delText,
+        int nLen
+    ) override {
+        if (!m_textInput || !m_inputNode) {
+            return false;
+        }
+        std::string cur = m_textInput->getString();
+        if (!cur.empty()) {
+            cur.pop_back();
+            m_internalSync = true;
+            m_textInput->setString(cur);
+            m_internalSync = false;
+            if (m_onTextUpdated) {
+                m_onTextUpdated(cur);
+            }
+        }
+        return true;
+    }
+
+    void textChanged() override {
+        if (m_origDelegate && m_origDelegate != this) {
+            m_origDelegate->textChanged();
+        }
+        if (!m_internalSync && m_textInput && m_onTextUpdated) {
+            m_onTextUpdated(m_textInput->getString());
+        }
+    }
+};
+
+// ===========================================================================
 // Menu Principal de DecoMind AI v0.3.4-alpha
 // ===========================================================================
 class DecoMindPopup : public Popup {
@@ -1005,8 +1138,10 @@ protected:
     // Columna Derecha - Panel 2: CHAT / COMANDO (con anclaje central propio para moverse al centro)
     CCNode* m_chatPanelNode = nullptr;
     TextInput* m_promptInput = nullptr;
+    PromptTextFieldDelegate m_promptFieldDelegate;
     CCNode* m_placeholderNode = nullptr;
-    CCLabelBMFont* m_typedPreviewLines[3] = {nullptr, nullptr, nullptr};
+    CCLabelBMFont* m_typedPreviewLines[4] = {nullptr, nullptr, nullptr, nullptr};
+    CCNode* m_tildeOverlayNode = nullptr;
 
     // Columna Derecha - Panel 3: HISTORIAL (un unico boton '>' arriba a la derecha)
     CCNode* m_histPanelNode = nullptr;
@@ -1932,20 +2067,47 @@ protected:
             m_placeholderNode->addChild(pl);
         }
 
-        for (int l = 0; l < 3; ++l) {
+        for (int l = 0; l < 4; ++l) {
             m_typedPreviewLines[l] = CCLabelBMFont::create("", "chatFont.fnt");
             m_typedPreviewLines[l]->setAnchorPoint({0.f, 0.5f});
             m_typedPreviewLines[l]->setColor(COL_TEXT_WHITE);
-            m_typedPreviewLines[l]->setPosition({ps(38.f), ch - ps(116.f + static_cast<float>(l) * 28.f)});
+            m_typedPreviewLines[l]->setPosition({ps(38.f), ch - ps(88.f + static_cast<float>(l) * 28.f)});
             m_chatPanelNode->addChild(m_typedPreviewLines[l], 5);
         }
+
+        m_tildeOverlayNode = CCNode::create();
+        m_tildeOverlayNode->setPosition({0.f, 0.f});
+        m_chatPanelNode->addChild(m_tildeOverlayNode, 6);
 
         m_promptInput = TextInput::create(ps(336.f), " ", "chatFont.fnt");
         m_promptInput->setCommonFilter(CommonFilter::Any);
         m_promptInput->setMaxCharCount(160);
-        m_promptInput->setPosition({cw * 0.5f, ch - ps(90.f)});
+        m_promptInput->setPosition({cw * 0.5f, ch - ps(130.f)});
+        m_promptInput->setContentSize({ps(348.f), ps(126.f)});
         if (m_promptInput->getBGSprite()) {
             m_promptInput->getBGSprite()->setOpacity(0);
+        }
+        if (auto* inNode = m_promptInput->getInputNode()) {
+            inNode->setContentSize({ps(348.f), ps(126.f)});
+            if (auto children = inNode->getChildren()) {
+                for (unsigned int i = 0; i < children->count(); ++i) {
+                    auto obj = children->objectAtIndex(i);
+                    if (auto* tf = typeinfo_cast<CCTextFieldTTF*>(obj)) {
+                        m_promptFieldDelegate.bind(
+                            m_promptInput,
+                            inNode,
+                            tf,
+                            static_cast<CCTextFieldDelegate*>(inNode),
+                            [this](std::string const& updated) {
+                                this->onPromptTextChanged(updated);
+                            }
+                        );
+                    } else if (auto* bm = typeinfo_cast<CCLabelBMFont*>(obj)) {
+                        bm->setOpacity(0);
+                        bm->setScale(0.0001f);
+                    }
+                }
+            }
         }
         m_promptInput->setCallback([this](std::string const& text) {
             this->onPromptTextChanged(text);
@@ -2059,31 +2221,114 @@ protected:
         }
     }
 
-    void onPromptTextChanged(std::string const& text) {
-        std::string clean = trimStr(sanitizeForGD(text));
-        if (m_placeholderNode) {
-            m_placeholderNode->setVisible(clean.empty());
+    void hideInternalPromptInputLabels() {
+        if (!m_promptInput) return;
+        if (auto* inNode = m_promptInput->getInputNode()) {
+            if (auto children = inNode->getChildren()) {
+                for (unsigned int i = 0; i < children->count(); ++i) {
+                    if (auto* bm = typeinfo_cast<CCLabelBMFont*>(children->objectAtIndex(i))) {
+                        bm->setOpacity(0);
+                        bm->setScale(0.0001f);
+                    }
+                }
+            }
         }
-        for (int l = 0; l < 3; ++l) {
+    }
+
+    void onPromptTextChanged(std::string const& text) {
+        this->hideInternalPromptInputLabels();
+
+        std::string norm = normalizePromptInputWithEnye(text);
+        // Recortar solo espacios iniciales para conservar espacios al escribir entre palabras
+        size_t firstNonSpace = norm.find_first_not_of(" \t\r\n");
+        std::string work = (firstNonSpace == std::string::npos) ? "" : norm.substr(firstNonSpace);
+
+        if (m_placeholderNode) {
+            m_placeholderNode->setVisible(work.empty());
+        }
+        for (int l = 0; l < 4; ++l) {
             if (m_typedPreviewLines[l]) m_typedPreviewLines[l]->setString("");
         }
-        if (clean.size() > 38) {
-            std::string rest = clean.substr(38);
-            for (int l = 0; l < 3 && !rest.empty(); ++l) {
-                std::string chunk = rest.substr(0, std::min<size_t>(38, rest.size()));
-                fitBMFontLabel(m_typedPreviewLines[l], chunk, ps(324.f), 0.44f);
-                if (rest.size() > 38) rest = rest.substr(38);
-                else rest.clear();
+        if (m_tildeOverlayNode) {
+            m_tildeOverlayNode->removeAllChildren();
+        }
+        if (work.empty()) {
+            return;
+        }
+
+        // Ajuste de linea inteligente por palabras completas (sin cortar palabras a la mitad
+        // ni ocultar la primera linea) a lo largo de las 4 filas del cuadro de chat.
+        constexpr size_t kMaxLineChars = 38;
+        std::string rest = work;
+        for (int l = 0; l < 4 && !rest.empty(); ++l) {
+            size_t lead = rest.find_first_not_of(' ');
+            if (lead == std::string::npos) break;
+            if (lead > 0) rest = rest.substr(lead);
+
+            std::string chunk;
+            if (l < 3 && rest.size() > kMaxLineChars) {
+                size_t splitPos = rest.rfind(' ', kMaxLineChars);
+                if (splitPos != std::string::npos && splitPos > 0) {
+                    chunk = rest.substr(0, splitPos);
+                    rest = rest.substr(splitPos + 1);
+                } else {
+                    chunk = rest.substr(0, kMaxLineChars);
+                    rest = rest.substr(kMaxLineChars);
+                }
+            } else {
+                chunk = rest;
+                rest.clear();
+            }
+
+            if (!m_typedPreviewLines[l]) continue;
+
+            // Convertir marcadores ~ -> 'n' y '^' -> 'N' para el texto base
+            std::string displayLine = chunk;
+            for (char& ch : displayLine) {
+                if (ch == '~') ch = 'n';
+                else if (ch == '^') ch = 'N';
+            }
+
+            m_typedPreviewLines[l]->setString(displayLine.c_str());
+            m_typedPreviewLines[l]->setScale(0.44f);
+            float w = m_typedPreviewLines[l]->getContentSize().width * 0.44f;
+            float maxW = ps(324.f);
+            if (w > maxW && w > 0.f) {
+                m_typedPreviewLines[l]->setScale(std::max(0.18f, 0.44f * (maxW / w)));
+            }
+
+            // Dibujar la virgulilla (~) encima de cada ñ / Ñ en esta fila
+            if (m_tildeOverlayNode) {
+                float lblScale = m_typedPreviewLines[l]->getScale();
+                CCPoint basePos = m_typedPreviewLines[l]->getPosition();
+                float halfH = m_typedPreviewLines[l]->getContentSize().height * 0.5f;
+                for (size_t k = 0; k < chunk.size(); ++k) {
+                    if (chunk[k] != '~' && chunk[k] != '^') continue;
+                    if (auto* chSpr = typeinfo_cast<CCSprite*>(m_typedPreviewLines[l]->getChildByTag(static_cast<int>(k)))) {
+                        auto tilde = CCLabelBMFont::create("~", "chatFont.fnt");
+                        tilde->setColor(COL_TEXT_WHITE);
+                        tilde->setScale(lblScale * 0.80f);
+                        CCPoint sprPos = chSpr->getPosition();
+                        float tildeOffsetY = (chunk[k] == '^') ? ps(8.2f) : ps(6.4f);
+                        tilde->setPosition({
+                            basePos.x + sprPos.x * lblScale,
+                            basePos.y + (sprPos.y - halfH) * lblScale + tildeOffsetY
+                        });
+                        m_tildeOverlayNode->addChild(tilde);
+                    }
+                }
             }
         }
     }
 
     void setPromptText(std::string const& text) {
-        std::string clean = sanitizeForGD(text);
+        std::string norm = normalizePromptInputWithEnye(text);
         if (m_promptInput) {
-            m_promptInput->setString(clean);
+            m_promptFieldDelegate.m_internalSync = true;
+            m_promptInput->setString(norm);
+            m_promptFieldDelegate.m_internalSync = false;
         }
-        this->onPromptTextChanged(clean);
+        this->onPromptTextChanged(norm);
     }
 
     // -----------------------------------------------------------------------
@@ -2265,7 +2510,7 @@ protected:
         switch (idx) {
             case 0: {
                 std::string curModeId = (m_selectedMode >= 0) ? MODES[m_selectedMode].id : "deco";
-                std::string curPrompt = m_promptInput ? std::string(m_promptInput->getString().c_str()) : "";
+                std::string curPrompt = m_promptInput ? sanitizeForGD(std::string(m_promptInput->getString().c_str())) : "";
                 if (auto pop = FavoritesPopup::create(
                     curModeId, curPrompt,
                     [this](int mi, std::string const& p) {
@@ -2324,7 +2569,7 @@ protected:
             return;
         }
 
-        std::string prompt = m_promptInput ? trimStr(std::string(m_promptInput->getString().c_str())) : "";
+        std::string prompt = m_promptInput ? trimStr(sanitizeForGD(std::string(m_promptInput->getString().c_str()))) : "";
         if (prompt.empty()) {
             this->showPage(2);
             this->updateChatStatusText(
@@ -2485,6 +2730,10 @@ protected:
     }
 
 public:
+    ~DecoMindPopup() override {
+        m_promptFieldDelegate.unbind();
+    }
+
     static DecoMindPopup* create(LevelEditorLayer* lel) {
         auto ret = new DecoMindPopup();
         if (ret->init(lel)) {

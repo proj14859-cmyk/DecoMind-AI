@@ -5,12 +5,6 @@ Todas las modificaciones notables realizadas en este proyecto están documentada
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
-## [0.3.5-alpha] - 2026-10-26 — Selector Oficial de Color de GD y Botón Flotante Movible del Editor
-- src/EditorButton.hpp: Se eliminó el calificador const en los métodos de visibilidad (isHierarchyVisible() e isModalOrPlaytestActive()) y se cambió el puntero a CCNode* no-const. En Cocos2d-x 2.2, getParent() e isVisible() no están declaradas como const,
- lo que provocaba el fallo de compilación estricta de C++23 en Windows y Android.
-- src/OfficialColorPickerPopup.hpp: El selector de color nativo oficial de Geometry Dash basado en la rueda CCControlColourPicker y la estructura de ColorSelectPopup
-- src/EditorButton.hpp: El botón flotante circular movible (decomind::DragButton), con transparencia del ~55%, arrastre libre por pantalla y toque simple para abrir DecoMind.
-
 
 ## [0.3.4-alpha] - 2026-10-26 — Selector Oficial de Color de GD y Botón Flotante Movible del Editor
 
@@ -37,7 +31,16 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
   - **Sincronización en vivo del borde con el tema**: añadido `DragButton::refreshTheme()` para que el anillo del botón flotante actualice su color al instante cuando se cambia el color del menú en `AJUSTES`.
   - **Corrección de compatibilidad en Clang / NDK (`getParent()` e `isVisible()`)**: en Cocos2d-x 2.2 las funciones virtuales de `CCNode` no están marcadas como `const`, por lo que declarar `CCNode const*` en `isHierarchyVisible()` provocaba error de compilación estricta de C++23 en Windows y Android. Ajustado a puntero no-const `CCNode*`.
 
-### 3. Versión Global y Documentación
+### 3. Corrección de Entrada de Texto Multilínea y Soporte de Letra `ñ`/`Ñ` en el Chat (`src/main.cpp` y `src/Modes.hpp`)
+- **Corrección del borrado del texto previo al autocompletar o escribir palabras largas (`PromptTextFieldDelegate`)**:
+  - En `libcocos2dcpp.so` (`CCTextInputNode::onTextFieldInsertText` en `0x5a4498`), cuando `strlen(text) > 1` (por ejemplo al autocompletar `"estructura"` -> `"tura"` en el teclado de Android, escribir rápido o insertar caracteres UTF-8 de 2 bytes como la `ñ`), el código nativo ejecutaba `this->setString(filtered)` (`0x5a4688`) sobrescribiendo todo el texto escrito anteriormente (`"genera una estruc"`) y llamaba a `onClickTrackNode(false)` (`0x5a46ac`) cerrando el teclado.
+  - Se implementó `PromptTextFieldDelegate` (`cocos2d::CCTextFieldDelegate`) para interceptar `onTextFieldInsertText` y `onTextFieldDeleteBackward`, concatenando siempre los nuevos caracteres al texto existente sin borrar lo anterior ni cerrar el teclado.
+- ** Salto de línea inteligente por palabras completas en 4 filas (`m_typedPreviewLines[4]`)**:
+  - Se ocultó el `CCLabelBMFont` interno de una sola línea de `CCTextInputNode` (que cortaba visualmente en ~17 caracteres, ancho `ps(336.f)`) y se amplió la vista previa a **4 líneas completas** con ajuste por límites de palabra (`rfind(' ')`) para que ninguna palabra quede partida a la mitad.
+- **Soporte completo de `ñ`, `Ñ` y tildes en español (`normalizePromptInputWithEnye` + `m_tildeOverlayNode`)**:
+  - Acepta `ñ`/`Ñ` y vocales acentuadas (`á, é, í, ó, ú, ü, ¿, ¡`) tanto en UTF-8 (`0xC3 0xB1`) como en Latin-1/Windows-1252 (`0xF1`), dibujando visualmente la virgulilla (`~`) sobre la `n`/`N` en el cuadro de chat.
+
+### 4. Versión Global y Documentación
 - Versión global actualizada a **`0.3.4-alpha`** (`v0.3.4-alpha` en `mod.json`, `0.3.4` en `CMakeLists.txt`, cabeceras de `src/`, `Server/`, `README.md` y `About.md`).
 - Añadido `COMO-FUNCIONA.md` con el desglose técnico verificado contra `libcocos2dcpp.so` (ARM64).
 

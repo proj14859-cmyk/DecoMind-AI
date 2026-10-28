@@ -177,9 +177,68 @@ inline int modeIndexById(std::string const& id) {
     return -1;
 }
 
-// Convierte cadenas UTF-8 con tildes o caracteres especiales a ASCII limpio
+// Normaliza texto de entrada del usuario en el cuadro de CHAT / COMANDO:
+// - Convierte 'ñ' (UTF-8 0xC3 0xB1 o Latin-1 0xF1) en el marcador de 1 byte '~'
+//   y 'Ñ' (UTF-8 0xC3 0x91 o Latin-1 0xD1) en '^', de modo que CCTextFieldTTF
+//   mantenga 1 byte = 1 caracter y la vista previa dibuje la virgulilla (~) sobre la n/N.
+// - Convierte vocales acentuadas (UTF-8 y Latin-1) a su vocal base ASCII.
+inline std::string normalizePromptInputWithEnye(std::string const& input) {
+    std::string out;
+    out.reserve(input.size());
+    for (size_t i = 0; i < input.size(); ++i) {
+        unsigned char c = static_cast<unsigned char>(input[i]);
+        if (c == 0xC3 && i + 1 < input.size()) {
+            unsigned char n = static_cast<unsigned char>(input[i + 1]);
+            switch (n) {
+                case 0xA1: case 0xA0: case 0xA2: case 0xA4: out += 'a'; ++i; continue;
+                case 0xA9: case 0xA8: case 0xAA: case 0xAB: out += 'e'; ++i; continue;
+                case 0xAD: case 0xAC: case 0xAE: case 0xAF: out += 'i'; ++i; continue;
+                case 0xB3: case 0xB2: case 0xB4: case 0xB6: out += 'o'; ++i; continue;
+                case 0xBA: case 0xB9: case 0xBB: case 0xBC: out += 'u'; ++i; continue;
+                case 0xB1: out += '~'; ++i; continue; // ñ -> marcador '~'
+                case 0x81: case 0x80: case 0x82: case 0x84: out += 'A'; ++i; continue;
+                case 0x89: case 0x88: case 0x8A: case 0x8B: out += 'E'; ++i; continue;
+                case 0x8D: case 0x8C: case 0x8E: case 0x8F: out += 'I'; ++i; continue;
+                case 0x93: case 0x92: case 0x94: case 0x96: out += 'O'; ++i; continue;
+                case 0x9A: case 0x99: case 0x9B: case 0x9C: out += 'U'; ++i; continue;
+                case 0x91: out += '^'; ++i; continue; // Ñ -> marcador '^'
+                default: break;
+            }
+        } else if (c == 0xC2 && i + 1 < input.size()) {
+            unsigned char n = static_cast<unsigned char>(input[i + 1]);
+            if (n == 0xA1) { out += '!'; ++i; continue; }
+            if (n == 0xBF) { out += '?'; ++i; continue; }
+        }
+        // Soporte para codificacion de 1 byte Latin-1 / Windows-1252 (teclados en espanol en PC)
+        switch (c) {
+            case 0xF1: out += '~'; continue; // ñ
+            case 0xD1: out += '^'; continue; // Ñ
+            case 0xE1: case 0xE0: case 0xE2: case 0xE4: out += 'a'; continue;
+            case 0xE9: case 0xE8: case 0xEA: case 0xEB: out += 'e'; continue;
+            case 0xED: case 0xEC: case 0xEE: case 0xEF: out += 'i'; continue;
+            case 0xF3: case 0xF2: case 0xF4: case 0xF6: out += 'o'; continue;
+            case 0xFA: case 0xF9: case 0xFB: case 0xFC: out += 'u'; continue;
+            case 0xC1: case 0xC0: case 0xC2: case 0xC4: out += 'A'; continue;
+            case 0xC9: case 0xC8: case 0xCA: case 0xCB: out += 'E'; continue;
+            case 0xCD: case 0xCC: case 0xCE: case 0xCF: out += 'I'; continue;
+            case 0xD3: case 0xD2: case 0xD4: case 0xD6: out += 'O'; continue;
+            case 0xDA: case 0xD9: case 0xDB: case 0xDC: out += 'U'; continue;
+            case 0xA1: out += '!'; continue;
+            case 0xBF: out += '?'; continue;
+            default: break;
+        }
+        if (c == '\n' || c == '\r' || c == '\t') {
+            out += ' ';
+        } else if (c >= 32 && c < 127) {
+            out += static_cast<char>(c);
+        }
+    }
+    return out;
+}
+
+// Convierte cadenas UTF-8, Latin-1 o con marcadores internos ('~'/'^') a ASCII limpio
 // compatible con las fuentes bitmap de Geometry Dash (bigFont.fnt / chatFont.fnt),
-// evitando que se omitan letras acentuadas.
+// evitando que se omitan letras acentuadas o la letra ñ.
 inline std::string sanitizeForGD(std::string const& input) {
     std::string out;
     out.reserve(input.size());
@@ -206,6 +265,23 @@ inline std::string sanitizeForGD(std::string const& input) {
             unsigned char n = static_cast<unsigned char>(input[i + 1]);
             if (n == 0xA1) { out += '!'; ++i; continue; }
             if (n == 0xBF) { out += '?'; ++i; continue; }
+        }
+        switch (c) {
+            case 0xF1: case '~': out += 'n'; continue;
+            case 0xD1: case '^': out += 'N'; continue;
+            case 0xE1: case 0xE0: case 0xE2: case 0xE4: out += 'a'; continue;
+            case 0xE9: case 0xE8: case 0xEA: case 0xEB: out += 'e'; continue;
+            case 0xED: case 0xEC: case 0xEE: case 0xEF: out += 'i'; continue;
+            case 0xF3: case 0xF2: case 0xF4: case 0xF6: out += 'o'; continue;
+            case 0xFA: case 0xF9: case 0xFB: case 0xFC: out += 'u'; continue;
+            case 0xC1: case 0xC0: case 0xC2: case 0xC4: out += 'A'; continue;
+            case 0xC9: case 0xC8: case 0xCA: case 0xCB: out += 'E'; continue;
+            case 0xCD: case 0xCC: case 0xCE: case 0xCF: out += 'I'; continue;
+            case 0xD3: case 0xD2: case 0xD4: case 0xD6: out += 'O'; continue;
+            case 0xDA: case 0xD9: case 0xDB: case 0xDC: out += 'U'; continue;
+            case 0xA1: out += '!'; continue;
+            case 0xBF: out += '?'; continue;
+            default: break;
         }
         if (c >= 32 && c < 127) {
             out += static_cast<char>(c);
