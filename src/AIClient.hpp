@@ -1,6 +1,6 @@
 #pragma once
 // ===========================================================================
-// DecoMind AI v0.3.7-alpha - Capa de Comunicacion con el Servidor / Proveedor IA
+// DecoMind AI v0.3.8-alpha - Capa de Comunicacion con el Servidor / Proveedor IA
 //
 // Desacopla la interfaz visual de la red y del proveedor de IA.
 // Construye las peticiones adjuntando internamente:

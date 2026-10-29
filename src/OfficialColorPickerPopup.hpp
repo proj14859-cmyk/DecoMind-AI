@@ -1,6 +1,6 @@
 #pragma once
 // ===========================================================================
-// DecoMind AI v0.3.7-alpha - Selector de Color Oficial de Geometry Dash
+// DecoMind AI v0.3.8-alpha - Selector de Color Oficial de Geometry Dash
 //
 // Integra CCControlColourPicker con el diseno de la Pagina 5 del PDF:
 //   - Muestra grande de color actual y original

@@ -1,6 +1,6 @@
 #pragma once
 // ===========================================================================
-// DecoMind AI v0.3.7-alpha - Motor de Renderizado Visual, Paleta Cromatica
+// DecoMind AI v0.3.8-alpha - Motor de Renderizado Visual, Paleta Cromatica
 //                            ("Un color -> toda la paleta") y Gestor de Fuentes
 //
 // Implementa fielmente las 6 paginas de DecoMind_AI_interfaz_pulida.pdf:
@@ -853,7 +853,7 @@ inline CCNode* createSidebarButtonNode(int idx, char const* title, bool active) 
         "sb-stats.png"_spr, "sb-settings.png"_spr
     };
     int sbIdx = (idx >= 0 && idx < 5) ? idx : 0;
-    ccColor3B contentCol = active ? pal.inkOnAccent : pal.text2;
+    ccColor3B contentCol = active ? pal.text : pal.text2;
 
     if (auto ico = createFitSprite(SB_ICONS[sbIdx], ps(24.f), ps(24.f), ccp(ps(28.f), h * 0.5f))) {
         ico->setColor(contentCol);

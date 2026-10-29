@@ -1,6 +1,6 @@
 #pragma once
 // ===========================================================================
-// DecoMind AI v0.3.7-alpha - Boton Flotante y Movible del Editor
+// DecoMind AI v0.3.8-alpha - Boton Flotante y Movible del Editor
 //
 // Incluye soporte para el control de Opacidad (20%..100%, por defecto 55%)
 // y el boton "RESTABLECER POSICION" de la pestana Ajustes (Pagina 5 del PDF),

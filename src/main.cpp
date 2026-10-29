@@ -1,5 +1,5 @@
 // ===========================================================================
-// DecoMind AI v0.3.7-alpha - Interfaz UI Completa Fiel al PDF Oficial
+// DecoMind AI v0.3.8-alpha - Interfaz UI Completa Fiel al PDF Oficial
 //
 // Implementa las 6 paginas de DecoMind_AI_interfaz_pulida.pdf:
 //   - Pagina 1 (INICIO): Cuadricula 3x3 deslizable con el dedo, tarjetas con
@@ -772,7 +772,7 @@ public:
 };
 
 // ===========================================================================
-// Menu Principal de DecoMind AI v0.3.7-alpha (Fidelidad Total al PDF)
+// Menu Principal de DecoMind AI v0.3.8-alpha (Fidelidad Total al PDF)
 // ===========================================================================
 class DecoMindPopup : public Popup, public cocos2d::extension::ColorPickerDelegate {
 protected:
@@ -1117,7 +1117,7 @@ protected:
         mascotBtn->setPosition({px(768.f), py(64.f)});
         m_fixedMenu->addChild(mascotBtn);
 
-        // Pildora de estado de conexion (derecha) + Pildora de version ("v0.3.7 a")
+        // Pildora de estado de conexion (derecha) + Pildora de version ("v0.3.8 a")
         m_connPillDn = CCDrawNode::create();
         m_mainLayer->addChild(m_connPillDn, 14);
 
@@ -1135,7 +1135,7 @@ protected:
             1426.f, 47.f, 82.f, 38.f, 12.f,
             pal.card, 0.98f, pal.line, 0.90f, 1.2f, 14
         );
-        if (auto verLbl = ui::createStyledLabel("v0.3.7 a", false, 0.40f, pal.text2, ps(74.f))) {
+        if (auto verLbl = ui::createStyledLabel("v0.3.8 a", false, 0.40f, pal.text2, ps(74.f))) {
             verLbl->setPosition({px(1467.f), py(66.f)});
             m_mainLayer->addChild(verLbl, 15);
         }
@@ -1405,7 +1405,7 @@ protected:
         }
         if (auto uReset = ui::createStyledLabel("Se reinicia a medianoche", false, 0.38f, pal.text3, ps(180.f))) {
             uReset->setAnchorPoint({1.f, 0.5f});
-            uReset->setPosition({px(1484.f), py(158.f)});
+            uReset->setPosition({px(1484.f), py(180.f)});
             page->addChild(uReset, 5);
         }
 
@@ -1528,16 +1528,6 @@ protected:
         float rowStep = (rh - 54.f) / 3.f;
         for (int r = 0; r < 3; ++r) {
             float rowY = ry_top + 68.f + r * rowStep;
-            if (r > 0) {
-                hDn->drawSegment(
-                    ccp(px(rx + 24.f), py(rowY - rowStep * 0.5f)),
-                    ccp(px(rx + rw - 24.f), py(rowY - rowStep * 0.5f)),
-                    ps(0.8f),
-                    rgba4F(pal.line, 0.6f)
-                );
-            }
-            hDn->drawDot(ccp(px(rx + 30.f), py(rowY)), ps(4.2f), rgba4F(pal.modeAccent(r * 3), 1.f));
-
             outTexts[r] = ui::createStyledLabel("", false, 0.36f, pal.text, ps(rw - 150.f));
             if (outTexts[r]) {
                 outTexts[r]->setAnchorPoint({0.f, 0.5f});
@@ -1626,6 +1616,7 @@ protected:
             rowNode->setPosition({listW * 0.5f, ry + rowH * 0.5f});
 
             auto dn = CCDrawNode::create();
+            dn->setTag(790);
             ui::drawRoundedRect(
                 dn, 0.f, 0.f, listW, rowH, ps(14.f),
                 rgba4F(isSel ? pal.elevated : pal.card, 0.98f),
@@ -1635,6 +1626,7 @@ protected:
             rowNode->addChild(dn, 1);
 
             auto badge = ui::createModeIconBadge(i, isSel, 42.f, 11.f);
+            badge->setTag(791);
             badge->ignoreAnchorPointForPosition(false);
             badge->setAnchorPoint({0.5f, 0.5f});
             badge->setPosition({ps(34.f), rowH * 0.5f});
@@ -1648,6 +1640,7 @@ protected:
 
             if (isSel) {
                 auto tagDn = CCDrawNode::create();
+                tagDn->setTag(792);
                 ui::drawRoundedRect(
                     tagDn, listW - ps(88.f), rowH * 0.5f - ps(14.f), ps(72.f), ps(28.f), ps(8.f),
                     rgba4F(pal.card, 1.f), ps(1.0f), rgba4F(pal.lineStrong, 0.9f)
@@ -1887,7 +1880,9 @@ protected:
             }
         }
 
-        // Botones DESHACER y GUARDAR EN FAVORITOS debajo de la respuesta
+        ui::addRefRoundedBox(page, 278.f, 598.f, 834.f, 60.f, 10.f,
+            pal.panel, .98f, pal.line, .9f, 1.f, 3);
+        // Acciones fuera del viewport de mensajes (termina en y=589).
         auto undoSpr = ui::makeCustomMenuBtn("DESHACER", ps(118.f), ps(40.f), pal.card, pal.lineStrong, 0.22f, false, ps(10.f));
         auto undoBtn = CCMenuItemExt::createSpriteExtra(undoSpr, [this](CCMenuItemSpriteExtra*) {
             if (!m_canUndoAiAction) {
@@ -1901,7 +1896,7 @@ protected:
             }
         });
         undoBtn->m_scaleMultiplier = 1.03f;
-        undoBtn->setPosition({px(337.f), py(504.f)});
+        undoBtn->setPosition({px(337.f), py(628.f)});
         pageMenu->addChild(undoBtn);
 
         auto favSpr = ui::makeCustomMenuBtn("GUARDAR EN FAVORITOS", ps(216.f), ps(40.f), pal.card, pal.lineStrong, 0.22f, false, ps(10.f));
@@ -1916,7 +1911,7 @@ protected:
             this->updateChatStatusText("FAVORITO GUARDADO", COL_STATUS_GREEN, "Comando guardado en tu lista de Favoritos.");
         });
         favBtn->m_scaleMultiplier = 1.03f;
-        favBtn->setPosition({px(518.f), py(504.f)});
+        favBtn->setPosition({px(518.f), py(628.f)});
         pageMenu->addChild(favBtn);
 
         // Fila de 4 chips rapidos encima de la caja de texto (y_top_ref = 696)
@@ -2718,8 +2713,8 @@ protected:
             rgba4F(pal.accent, 1.f), ps(1.2f), rgba4F(COL_TEXT_WHITE, 0.9f)
         );
         if (auto hexLbl3 = ui::createStyledLabel(colorToHexStr(pal.accent), true, 0.22f, pal.text, ps(96.f))) {
-            hexLbl3->setAnchorPoint({0.f, 0.5f});
-            hexLbl3->setPosition({ps(702.f), yFromTop(295.f)});
+            hexLbl3->setAnchorPoint({1.f, 0.5f});
+            hexLbl3->setPosition({ps(790.f), yFromTop(295.f)});
             content->addChild(hexLbl3, 5);
         }
 
@@ -2774,7 +2769,7 @@ protected:
 
         if (auto vLbl = ui::createStyledLabel("Velocidad", false, 0.38f, pal.text3, ps(90.f))) {
             vLbl->setAnchorPoint({1.f, 0.5f});
-            vLbl->setPosition({ps(468.f), yFromTop(464.f)});
+            vLbl->setPosition({ps(616.f), yFromTop(438.f)});
             content->addChild(vLbl, 5);
         }
 
@@ -2882,7 +2877,7 @@ protected:
         float opFrac = std::clamp((opPct - 20.f) / 80.f, 0.f, 1.f);
         if (auto opLbl = ui::createStyledLabel("Opacidad", false, 0.37f, pal.text3, ps(80.f))) {
             opLbl->setAnchorPoint({1.f, 0.5f});
-            opLbl->setPosition({ps(416.f), yFromTop(696.f)});
+            opLbl->setPosition({ps(522.f), yFromTop(670.f)});
             content->addChild(opLbl, 5);
         }
         ui::drawRoundedRect(
@@ -3341,30 +3336,9 @@ protected:
         m_fontLoadingOverlay->setContentSize({PW, PH});
         m_fontLoadingOverlay->setPosition({0.f, 0.f});
 
-        // 1. Velo multi-capa que oscurece y difumina suavemente ("no tanto") la pantalla
-        auto veilDn = CCDrawNode::create();
-        ui::drawRoundedRect(
-            veilDn, 0.f, 0.f, PW, PH, ps(22.f),
-            rgba4F(pal.bgOuter, 0.56f), 0.f, ccc4f(0, 0, 0, 0)
-        );
-        ui::drawRoundedRect(
-            veilDn, ps(8.f), ps(8.f), PW - ps(16.f), PH - ps(16.f), ps(20.f),
-            rgba4F(pal.panel, 0.34f), 0.f, ccc4f(0, 0, 0, 0)
-        );
-        // Tarjeta central esmerilada donde gira el circulo de carga
-        ui::drawRoundedRect(
-            veilDn,
-            PW * 0.5f - ps(180.f), PH * 0.5f - ps(92.f),
-            ps(360.f), ps(184.f), ps(20.f),
-            rgba4F(pal.panel, 0.94f),
-            ps(1.6f),
-            rgba4F(pal.accent, 0.88f)
-        );
-        m_fontLoadingOverlay->addChild(veilDn, 1);
-
         // 2. Circulo giratorio tipico de carga en el centro
         auto spinnerHolder = CCNode::create();
-        spinnerHolder->setPosition({PW * 0.5f, PH * 0.5f + ps(24.f)});
+        spinnerHolder->setPosition({PW * 0.5f, PH * 0.5f + ps(32.f)});
         m_fontLoadingOverlay->addChild(spinnerHolder, 5);
 
         if (auto nativeSpr = CCSprite::create("loadingCircle.png")) {
@@ -3396,14 +3370,14 @@ protected:
         if (loadLbl) {
             loadLbl->setColor(pal.text);
             loadLbl->setScale(0.32f);
-            loadLbl->setPosition({PW * 0.5f, PH * 0.5f - ps(34.f)});
+            loadLbl->setPosition({PW * 0.5f, PH * 0.5f - ps(12.f)});
             m_fontLoadingOverlay->addChild(loadLbl, 6);
         }
         auto subLbl = CCLabelBMFont::create(GAME_FONT_LIST[m_pendingFontIndex].displayName, "chatFont.fnt");
         if (subLbl) {
             subLbl->setColor(pal.accentSoft);
             subLbl->setScale(0.46f);
-            subLbl->setPosition({PW * 0.5f, PH * 0.5f - ps(64.f)});
+            subLbl->setPosition({PW * 0.5f, PH * 0.5f - ps(40.f)});
             m_fontLoadingOverlay->addChild(subLbl, 6);
         }
 
@@ -3608,6 +3582,7 @@ protected:
         }
         if (m_chatModeBtnLbl) fitBMFontLabel(m_chatModeBtnLbl, MODES[m_selectedMode].name, ps(180.f), 0.41f);
         this->refreshPage1Detail();
+        this->refreshSelectedModeCards();
     }
 
     void refreshSelectedModeCards() {
@@ -3642,6 +3617,25 @@ protected:
                     m_cardNodes[i]->addChild(spr, 5);
                 }
             }
+        }
+        for (int i = 0; i < 9; ++i) {
+            auto row = m_infoRowNodes[i];
+            if (!row) continue;
+            bool selected = i == m_selectedMode;
+            row->removeChildByTag(791);
+            row->removeChildByTag(792);
+            if (auto dn = typeinfo_cast<CCDrawNode*>(row->getChildByTag(790))) {
+                dn->clear();
+                ui::drawRoundedRect(dn, 0.f, 0.f, ps(386.f), ps(68.f), ps(14.f),
+                    rgba4F(selected ? pal.elevated : pal.card, .98f),
+                    ps(selected ? 1.8f : 1.f), rgba4F(selected ? pal.accent : pal.line, .96f));
+            }
+            auto badge = ui::createModeIconBadge(i, selected, 42.f, 11.f);
+            badge->setTag(791);
+            badge->ignoreAnchorPointForPosition(false);
+            badge->setAnchorPoint({.5f, .5f});
+            badge->setPosition({ps(34.f), ps(34.f)});
+            row->addChild(badge, 3);
         }
         this->refreshUsagePanel();
     }
@@ -3863,7 +3857,7 @@ protected:
             );
         }
 
-        float frac = std::clamp(static_cast<float>(used) / static_cast<float>(limit), 0.06f, 1.f);
+        float frac = std::clamp(static_cast<float>(used) / static_cast<float>(limit), 0.f, 1.f);
         if (m_quotaBarFill) {
             m_quotaBarFill->clear();
             ui::drawRoundedRect(

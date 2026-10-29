@@ -1,4 +1,4 @@
-# Manual Oficial de DecoMind AI (v0.3.7-alpha)
+# Manual Oficial de DecoMind AI (v0.3.8-alpha)
 
 **DecoMind AI** es un asistente interactivo de inteligencia artificial diseñado de forma nativa para el editor de niveles de **Geometry Dash 2.2081** sobre **Geode SDK v5.11.2**. Permite generar estructuras, construir layouts jugables, añadir decoración, diseñar bloques personalizados, configurar triggers automáticos, crear transiciones, aplicar efectos avanzados y obtener sugerencias de diseño directamente desde una interfaz sci-fi integrada en el editor.
 
@@ -175,9 +175,9 @@ La IA solo puede colocar objetos que existan en el catálogo; cualquier otro ID 
 - Con el catálogo del juego, el servidor clasifica cada objeto por el nombre de su sprite (`solid`, `hazard`, `deco`, ...). Los modos de decoración solo pueden usar `deco`; los modos de layout pueden usar bloques, picos, portales, pads y orbes.
 - Sin `catalog_game.txt` los modos de decoración no tienen IDs y la IA te pedirá escribir `/catalogo`.
 
-Propiedades opcionales por objeto (`props`, validadas por rango en v0.3.7-alpha): color 21/22, z-layer 24, z-order 25, grupos múltiples 57 (ej. `"20.21.22"`), grupo objetivo 51, grupo centro 71, mover 28/29, easing 30 y rate 85, duración 10, canal 23, RGB 7/8/9, opacidad 35, rotación 68/69 y escala 150/151.
+Propiedades opcionales por objeto (`props`, validadas por rango en v0.3.8-alpha): color 21/22, z-layer 24, z-order 25, grupos múltiples 57 (ej. `"20.21.22"`), grupo objetivo 51, grupo centro 71, mover 28/29, easing 30 y rate 85, duración 10, canal 23, RGB 7/8/9, opacidad 35, rotación 68/69 y escala 150/151.
 
-### 7.2.2. Percepción Contextual del Nivel, Selección, Grupos y Colores (v0.3.7-alpha)
+### 7.2.2. Percepción Contextual del Nivel, Selección, Grupos y Colores (v0.3.8-alpha)
 En cada petición, el mod escanea automáticamente `LevelEditorLayer` y `EditorUI` y adjunta al servidor:
 - `SELECTION`: caja delimitadora (`bbox=minX,minY,maxX,maxY`), dimensiones en bloques (`WxH`) y lista de objetos seleccionados (`id@x,y...`).
 - `VIEWPORT`: objetos cercanos a la cámara actual cuando no hay selección activa.
@@ -215,7 +215,7 @@ Para proteger siempre tu nivel en el editor, existen dos filtros de validación 
 DecoMind-AI-main/
 ├── .github/workflows/main.yml      # Compilación automática multiplataforma (Windows, Android32, Android64)
 ├── CMakeLists.txt                  # Configuración de compilación CMake + Geode SDK
-├── mod.json                        # Manifiesto Geode v5.11.2 (versión v0.3.7-alpha, recursos y ajustes)
+├── mod.json                        # Manifiesto Geode v5.11.2 (versión v0.3.8-alpha, recursos y ajustes)
 ├── logo.png                        # Logo oficial del mod en formato cuadrado 512x512 RGBA
 ├── About.md                        # Descripción corta para el visor de mods de Geode
 ├── CHANGELOG.md                    # Registro histórico detallado de todas las versiones
