@@ -2773,8 +2773,8 @@ protected:
 
         if (auto vLbl = ui::createStyledLabel("Velocidad", false, 0.38f, pal.text3, ps(90.f))) {
             vLbl->setAnchorPoint({1.f, 0.5f});
-            vLbl->setPosition({ps(616.f), yFromTop(438.f)});
-            content->addChild(vLbl, 5);
+            vLbl->setPosition({ps(750.f),
+            yFromTop(438.f)});
         }
 
         // Barra deslizante e interactiva de velocidad (25%..300%) + interruptor
@@ -2881,8 +2881,7 @@ protected:
         float opFrac = std::clamp((opPct - 20.f) / 80.f, 0.f, 1.f);
         if (auto opLbl = ui::createStyledLabel("Opacidad", false, 0.37f, pal.text3, ps(80.f))) {
             opLbl->setAnchorPoint({1.f, 0.5f});
-            opLbl->setPosition({ps(522.f), yFromTop(670.f)});
-            content->addChild(opLbl, 5);
+            opLbl->setPosition({ps(740.f), yFromTop(670.f)});
         }
         ui::drawRoundedRect(
             sDn, ps(426.f), yFromTop(701.f), ps(96.f), ps(10.f), ps(5.f),
