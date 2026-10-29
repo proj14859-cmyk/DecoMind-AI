@@ -1,6 +1,6 @@
 #pragma once
 // ===========================================================================
-// DecoMind AI v0.3.6-alpha - Motor de Renderizado Visual, Paleta Cromatica
+// DecoMind AI v0.3.7-alpha - Motor de Renderizado Visual, Paleta Cromatica
 //                            ("Un color -> toda la paleta") y Gestor de Fuentes
 //
 // Implementa fielmente las 6 paginas de DecoMind_AI_interfaz_pulida.pdf:
