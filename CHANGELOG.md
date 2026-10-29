@@ -6,9 +6,9 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 
 ---
 
-## [0.3.6-alpha] - 2026-10-29 — Rediseño Completo de UI (Fidelidad al PDF), Paleta Cromática HSL y Selector de Fuentes del Juego
+## [0.3.6-alpha] - 2026-10-29 — Rediseño Completo de UI, Paleta Cromática HSL y Selector de Fuentes del Juego
 
-### 1. Recreación Completa de las 5 Vistas según `DecoMind_AI_interfaz_pulida.pdf` (`src/main.cpp`, `src/UIRenderer.hpp`, `src/Modes.hpp`)
+###  (`src/main.cpp`, `src/UIRenderer.hpp`, `src/Modes.hpp`)
 - **Marco General, Cabecera Dinámica, Barra Lateral y Barra Inferior**:
   - Cabecera superior con botón circular `<`, título y subtítulo dinámicos según la pestaña activa (`DecoMind AI`, `Información`, `Chat`, `Estadísticas`, `Ajustes`), mascota robot centrada sobre la línea divisoria, píldora interactiva de estado (`● Servidor local conectado` / `● Modo local activo`) y píldora de versión (`v0.3.6 a`).
   - Barra lateral izquierda con botones planos: el botón activo se ilumina en color **Acento (`92/64`)** con icono y texto en **Tinta sobre acento (`70/8`)**, y en la base se dibujan los dos picos minimalistas de Geometry Dash con estela luminosa RGB.
