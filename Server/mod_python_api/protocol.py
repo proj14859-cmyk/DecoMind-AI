@@ -1,4 +1,4 @@
-"""Protocolo de texto plano entre el mod DecoMind AI (v0.3.4-alpha) y el servidor.
+"""Protocolo de texto plano entre el mod DecoMind AI (v0.3.6-alpha) y el servidor.
 
 Peticion (cuerpo POST), una clave por linea:
     MODE:<id del modo>                 (layout, deco, layout_deco, block_design, triggers, ...)

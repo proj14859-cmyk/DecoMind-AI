@@ -6,6 +6,42 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 
 ---
 
+## [0.3.6-alpha] - 2026-10-29 — Rediseño Completo de UI (Fidelidad al PDF), Paleta Cromática HSL y Selector de Fuentes del Juego
+
+### 1. Recreación Completa de las 5 Vistas según `DecoMind_AI_interfaz_pulida.pdf` (`src/main.cpp`, `src/UIRenderer.hpp`, `src/Modes.hpp`)
+- **Marco General, Cabecera Dinámica, Barra Lateral y Barra Inferior**:
+  - Cabecera superior con botón circular `<`, título y subtítulo dinámicos según la pestaña activa (`DecoMind AI`, `Información`, `Chat`, `Estadísticas`, `Ajustes`), mascota robot centrada sobre la línea divisoria, píldora interactiva de estado (`● Servidor local conectado` / `● Modo local activo`) y píldora de versión (`v0.3.6 a`).
+  - Barra lateral izquierda con botones planos: el botón activo se ilumina en color **Acento (`92/64`)** con icono y texto en **Tinta sobre acento (`70/8`)**, y en la base se dibujan los dos picos minimalistas de Geometry Dash con estela luminosa RGB.
+  - Barra inferior con los 5 accesos (`FAVORITOS`, `TUTORIALES`, `MIS NIVELES`, `GUARDAR`, `REINICIAR`) con iconos vectoriales a la izquierda del texto, más el banner derecho del robot aliado con consejos rotativos.
+- **Página 1 — `INICIO` (`Elige un modo`)**:
+  - Cuadrícula 3x3 deslizable con el dedo o ratón, tarjetas con icono en recuadro redondeado, círculo de verificación (`✓`) arriba a la derecha en la tarjeta activa y flujo RGB perimetral.
+  - Columna derecha con `USO DE LA IA` (`Se reinicia a medianoche`, contador grande de peticiones hoy, barra de progreso, `Peticiones realizadas`, `Nivel actual` y píldora `Modo activo`), `CHAT / COMANDO` (con contador `0 / 160 · prueba /catalogo` y botón de envío en color Acento) e `HISTORIAL` (`Ver todo ›`).
+- **Página 2 — `INFORMACIÓN / MODOS` (`Qué hace cada modo y cómo pedirlo`)**:
+  - Diseño maestro-detalle a dos columnas: lista izquierda deslizable con los 9 modos y su etiqueta (`Orden`, `Jugable`, `Visual`, `Mixto`, `Bloques`, `Lógica`, `Consejos`), y panel derecho con `DETALLES DEL MODO`, icono grande `88x88`, explicación `QUÉ HACE ESTE MODO POR TU NIVEL`, sección `PUEDE USAR` con 3 píldoras permitidas (`✓`) y 2 restringidas (`✕`), caja `EJEMPLO DE PRUEBA` y botones `USAR ESTE MODO` y `PROBAR EL EJEMPLO`.
+- **Página 3 — `CHAT` (`Pídele a la IA lo que quieres en tu nivel`)**:
+  - Panel central de conversación con selector superior `Modo [Layout v]`, insignia de estado `LISTO`, burbuja derecha del usuario en color `Acento` con tinta oscura, burbuja izquierda de respuesta de la IA con 3 píldoras de resumen (`3 x pico (ID 8)`, `6 x bloque (ID 1)`, `x 300 -> 480`), botones `DESHACER` y `GUARDAR EN FAVORITOS`, 4 chips rápidos (`/catalogo`, `Usar selección`, `Tres pinchos seguidos`, `Deco neón para esta estructura`) y caja multilínea con soporte de `ñ` y acentos.
+  - Columna derecha con `LO QUE VE LA IA` (`Nivel`, `Objetos seleccionados`, `Zona visible`, `Catálogo`), `GRUPOS Y COLORES LIBRES` (`Siguiente grupo G12`, `Siguiente color C5`) e `HISTORIAL`.
+- **Página 4 — `ESTADÍSTICAS` (`Tu uso de la IA y el estado del nivel`)**:
+  - 4 tarjetas KPI superiores (`PETICIONES HOY`, `OBJETOS COLOCADOS`, `GRUPOS OCUPADOS`, `COLORES OCUPADOS`), gráfico de barras verticales `PETICIONES · ÚLTIMOS 7 DÍAS` (`L M X J V S D`), gráfico horizontal `MODOS MÁS USADOS` y tabla inferior `PUNTOS DE GUARDADO` con botón `RESTAURAR`.
+- **Página 5 — `AJUSTES` (`Conexión, color del menú, botón del editor y fuente de letras`)**:
+  - Columna central deslizable con 7 tarjetas: `Modo de conexión` (`Modo local` / `Modo AI`), `Dirección del servidor` (caja oscura compacta + `GUARDAR`), `Color del menú` (8 círculos cromáticos + `RUEDA DE COLOR`), `Flujo RGB en contornos` (`Velocidad` + interruptor), `Color de bordes, pinchos y robot` (`Pinchos RGB` + `Robot RGB`), `Botón del editor` (`Opacidad` + `RESTABLECER POSICIÓN`) y **`Fuente de letras`**; más el panel derecho integrado `SELECTOR DE COLOR` (`Rueda oficial de GD` con `CCControlColourPicker`, muestras, `R/G/B`, `HEX`, `COPY/PASTE/DEFAULT` y botón `OK`).
+
+### 2. Sistema Cromático Completo: `Un color -> toda la paleta` (Página 6 del PDF, `src/UIRenderer.hpp`)
+- A partir del matiz `H` elegido (`0°..360°`, por defecto `#9B5CF6`, `H = 265°`), `ChromaticPalette::fromHue(H)` calcula mediante conversión HSL exacta los 13 tonos del sistema: `Fondo exterior (50/5)`, `Panel (42/8)`, `Tarjeta (36/12)`, `Elevado (32/17)`, `Línea (30/22)`, `Línea fuerte (35/32)`, `Acento (92/64)`, `Acento suave (95/78)`, `Acento oscuro (75/42)`, `Tinta sobre acento (70/8)`, `Texto (25/97)`, `Texto 2 (20/76)` y `Texto 3 (16/62)`, además de tonos vecinos (`±28°`) para los 9 modos.
+
+### 3. Selector de Fuentes Personalizadas del Juego (`Fuente de letras`) y Pantalla de Carga (`src/UIRenderer.hpp`, `src/main.cpp`)
+- **Catálogo de 62 fuentes nativas del juego (`lib.zip` / `lib/fonts/`)**:
+  - Incluye `chatFont.fnt`, `bigFont.fnt`, `goldFont.fnt` y las 59 fuentes `gjFont01.fnt` .. `gjFont59.fnt` con sus nombres y detección automática de fuentes de solo mayúsculas (`uppercaseOnly`) para que ningún carácter desaparezca.
+- **Menú desplegable hacia arriba y pantalla de carga**:
+  - Ubicado debajo de `Botón del editor` en `Ajustes` con título `"Fuente de letras"` y descripción `"cambia la fuente de letras de la ui"`.
+  - Al tocar la flecha del borde derecho de la caja de fuente, se despliega **hacia arriba** un menú deslizante transparente oscuro y delgado del **mismo ancho exacto** que la caja (`ps(254.f)`).
+  - Al elegir una fuente, la pantalla se oscurece y difumina ligeramente mostrando `"Cargando fuente..."` en el centro junto al círculo giratorio de carga antes de aplicar la fuente a toda la interfaz.
+
+### 4. Correcciones Técnicas Adicionales
+- Persistencia de `Modo AI` / `Modo local` y `server_url` en `saved.json`, autogeneración de `data/catalog_curated.json` en `Server/mod_python_api/catalog.py`, contorno circular fino (`~0.85 pt`) en `EditorButton.hpp` y reconstrucción diferida segura (`scheduleRebuild`) en el bucle principal.
+
+---
+
 ## [0.3.4-alpha] - 2026-10-26 — Selector Oficial de Color de GD y Botón Flotante Movible del Editor
 
 ### 1. Selector de Color Oficial Nativo de Geometry Dash (`src/OfficialColorPickerPopup.hpp`)

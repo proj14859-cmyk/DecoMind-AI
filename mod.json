@@ -6,7 +6,7 @@
 		"mac": "2.2081",
 		"ios": "2.2081"
 	},
-	"version": "v0.3.5-alpha-fix",
+	"version": "v0.3.6-alpha",
 	"id": "thedaek.decomind-ai",
 	"name": "DecoMind-AI",
 	"developer": "TheDaek",
@@ -19,21 +19,20 @@
 	"settings": {
 		"mode": {
 			"type": "string",
-			"name": "Origen",
-			"description": "local = genera dentro del mod sin red (contextual). server = pide el nivel al servidor Python (Termux u otro celular/PC).",
-			"default": "local",
-			"one-of": ["local", "server"]
+			"name": "Modo de conexion",
+			"description": "server = Modo AI (conecta al servidor HTTP Python/Groq). local = Modo local (genera dentro del mod sin red).",
+			"default": "server",
+			"one-of": ["server", "local"]
 		},
 		"server-url": {
 			"type": "string",
 			"name": "URL del servidor",
 			"description": "Ejemplo Termux: http://127.0.0.1:8765/generate. Otro celular o PC: http://IP:8765/generate",
-			"default": "http://127.0.0.1:8765/generate",
-			"filter": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/.:-_"
+			"default": "http://127.0.0.1:8765/generate"
 		},
 		"sections": {
 			"type": "int",
-			"name": "Secciones (origen local)",
+			"name": "Secciones (Modo local)",
 			"default": 8,
 			"min": 1,
 			"max": 40

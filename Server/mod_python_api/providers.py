@@ -1,4 +1,4 @@
-"""Proveedores de IA para DecoMind AI (v0.3.4-alpha).
+"""Proveedores de IA para DecoMind AI (v0.3.6-alpha).
 Cada proveedor convierte una ApiRequest en una ApiReply leyendo el contexto del
 nivel (SELECTION, VIEWPORT, USED_GROUPS, FREE_GROUPS, USED_COLORS, FREE_COLORS).
 

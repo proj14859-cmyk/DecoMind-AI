@@ -1,4 +1,4 @@
-"""Catalogo de objetos de GD 2.2 para DecoMind AI (v0.3.4-alpha).
+"""Catalogo de objetos de GD 2.2 para DecoMind AI (v0.3.6-alpha).
 
 Fuentes (se combinan):
   1. data/catalog_curated.json  - IDs oficiales de uso comun (bloques, outlines,
@@ -19,10 +19,7 @@ import re
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 GAMEPLAY_CATS = {"solid", "hazard", "portal", "speed", "pad", "orb"}
 
-# Categorias que cada modo puede colocar en v0.3.4-alpha.
-# - `deco` y `block_design` incluyen `trigger` para permitir animaciones de entrada/salida,
-#   pulsos y configuracion de canales de color pedidos por el usuario en la misma orden.
-# - `estructurar` ahora puede colocar bordes/rellenos/triggers de organizacion sobre la seleccion.
+# Categorias que cada modo puede colocar en v0.3.6-alpha.
 MODE_CATS = {
     "layout":       {"solid", "hazard", "portal", "speed", "pad", "orb"},
     "layout_deco":  {"solid", "hazard", "portal", "speed", "pad", "orb", "deco", "trigger"},
@@ -35,8 +32,8 @@ MODE_CATS = {
     "ideas":        set(),
 }
 
-# Copia de seguridad de data/catalog_curated.json: se usa si ese archivo no existe,
-# para que la IA nunca se quede sin IDs aunque falte la carpeta data/.
+# Copia de seguridad de data/catalog_curated.json: si el archivo no existe en disco,
+# se genera automaticamente para que el servidor en Termux no muestre avisos.
 DEFAULT_CURATED = [
     (1, "solid", "bloque basico"),
     (8, "hazard", "pico"),
@@ -86,7 +83,7 @@ DEFAULT_CURATED = [
     (1347, "trigger", "trigger Follow"),
     (1268, "trigger", "trigger Spawn"),
     (1616, "trigger", "trigger Stop"),
-    # --- v0.3.4-alpha: IDs de la lista del changelog (sin verificar en el juego; /catalogo manda) ---
+    # --- IDs adicionales de bloques y decoracion ---
     *[(i, "solid", "bloque estructural") for i in (2, 3, 4, 5, 6, 7, 62, 63, 64, 65, 66, 83, 90, 91, 144, 145, 160, 161, 192)],
     *[(i, "deco", "borde") for i in (40, 41, 467, 468)],
     *[(i, "deco", "relleno sin colision") for i in (211, 503, 918)],
@@ -137,13 +134,23 @@ class Catalog:
         if os.path.isfile(game):
             self._load_game(open(game, encoding="utf-8", errors="replace").read())
         cur = os.path.join(self.data_dir, "catalog_curated.json")
+        if not os.path.isfile(cur):
+            try:
+                os.makedirs(self.data_dir, exist_ok=True)
+                payload = {
+                    "entries": [
+                        {"id": oid, "cat": cat, "name": name}
+                        for oid, cat, name in DEFAULT_CURATED
+                    ]
+                }
+                with open(cur, "w", encoding="utf-8") as fh:
+                    json.dump(payload, fh, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
         if os.path.isfile(cur):
             curated = [(int(e["id"]), e["cat"], e["name"])
                        for e in json.load(open(cur, encoding="utf-8")).get("entries", [])]
         else:
-            if not getattr(Catalog, "_warned", False):
-                print(f"[aviso] No existe {cur}; uso el catalogo basico incluido en el codigo.")
-                Catalog._warned = True
             curated = DEFAULT_CURATED
         for oid, cat, name in curated:
             # lo curado manda sobre la clasificacion automatica

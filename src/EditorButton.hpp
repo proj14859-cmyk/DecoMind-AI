@@ -1,25 +1,10 @@
 #pragma once
 // ===========================================================================
-// DecoMind AI v0.3.4-alpha - Boton Flotante y Movible del Editor
+// DecoMind AI v0.3.6-alpha - Boton Flotante y Movible del Editor
 //
-// Corroborado y corregido contra libcocos2dcpp.so (ARM64):
-//   1. Activa setTouchEnabled(true) y setTouchMode(kCCTouchesOneByOne) en init;
-//      en CCLayer::init() (0xaea00c) m_bTouchEnabled inicia en false y sin esto
-//      CCLayer::onEnter() (0xaec3ec) jamas invoca registerWithTouchDispatcher().
-//   2. Desactiva ignoreAnchorPointForPosition(false) y fija anchorPoint en
-//      {0.5f, 0.5f} para que setPosition() posicione el centro real del boton
-//      y coincida con el clamp de bordes de pantalla.
-//   3. Prioridad tactil -250: superior al EditorUI (0) y a las barras CCMenu
-//      del editor (-128), pero inferior a los modales FLAlertLayer / Popup
-//      (-501 o menor con ForcePrio), evitando robar toques a traves de ventanas
-//      abiertas o durante el modo Playtest.
-//   4. Corrige el namespace decomind::rgba4F (antes llamado como ui::rgba4F).
-//   5. Transparencia del ~55% en reposo (opacidad 140/255, dentro del rango
-//      50%-60%), aumentando suavemente al mantener pulsado/arrastrar.
-//   6. Comportamiento dual:
-//      - Picar una vez (toque corto sin desplazar) -> abre el menu DecoMind AI.
-//      - Mantener pulsado y mover el dedo o el raton -> arrastra el boton por
-//        toda la pantalla y guarda la posicion en "btn-x" y "btn-y".
+// Incluye soporte para el control de Opacidad (20%..100%, por defecto 55%)
+// y el boton "RESTABLECER POSICION" de la pestana Ajustes (Pagina 5 del PDF),
+// ademas del contorno circular fino (~0.85pt) recoloreado segun la paleta.
 // ===========================================================================
 #include <Geode/Geode.hpp>
 #include <algorithm>
@@ -30,6 +15,40 @@
 using namespace geode::prelude;
 
 namespace decomind {
+
+inline void drawThinEditorButtonRing(CCDrawNode* dn, float D, float alpha) {
+    if (!dn) return;
+    dn->clear();
+
+    auto pal = ThemeConfig::getPalette();
+    CCPoint center = ccp(D * 0.5f, D * 0.5f);
+    float rOuter = D * 0.5f - 0.6f;
+    float rInner = rOuter - 0.85f; // Contorno delgado (~0.85pt) pero claramente visible
+
+    ccColor3B accent = lerpColor(pal.accent, pal.accentSoft, 0.35f);
+    float borderAlpha = std::min(1.f, alpha + 0.30f);
+    float fillAlpha = std::min(1.f, alpha * 0.90f);
+
+    ui::drawCircleShape(
+        dn,
+        center,
+        rOuter,
+        rgba4F(accent, borderAlpha),
+        0.f,
+        ccc4f(0.f, 0.f, 0.f, 0.f),
+        48
+    );
+
+    ui::drawCircleShape(
+        dn,
+        center,
+        rInner,
+        rgba4F(pal.bgOuter, fillAlpha),
+        0.f,
+        ccc4f(0.f, 0.f, 0.f, 0.f),
+        48
+    );
+}
 
 class DragButton : public CCLayer {
 protected:
@@ -42,9 +61,13 @@ protected:
     bool m_down = false;
     bool m_dragging = false;
 
-    static constexpr GLubyte IDLE_OPACITY = 140;   // ~55% opacidad (transparencia entre 50% y 60%)
-    static constexpr GLubyte ACTIVE_OPACITY = 225; // ~88% opacidad al mantener pulsado / arrastrar
+    static constexpr GLubyte ACTIVE_OPACITY = 235;
     static constexpr float DRAG_THRESHOLD_PX = 6.5f;
+
+    GLubyte getIdleOpacityByte() const {
+        int pct = ThemeConfig::getEditorBtnOpacityPct();
+        return static_cast<GLubyte>(std::clamp((pct * 255) / 100, 40, 255));
+    }
 
     bool isHierarchyVisible() {
         for (CCNode* node = this; node != nullptr; node = node->getParent()) {
@@ -77,7 +100,7 @@ protected:
         auto sz = this->getContentSize();
         float cx = sz.width * 0.5f;
         float cy = sz.height * 0.5f;
-        float r = std::max(cx, cy) + 3.f; // Margen tactil comodo en movil y raton
+        float r = std::max(cx, cy) + 3.f;
         float dx = local.x - cx;
         float dy = local.y - cy;
         return (dx * dx + dy * dy) <= (r * r);
@@ -85,24 +108,17 @@ protected:
 
     void drawRingWithAlpha(float alpha) {
         if (!m_ring) return;
-        m_ring->clear();
         float D = this->getContentSize().width;
-        ui::drawCircleShape(
-            m_ring,
-            ccp(D * 0.5f, D * 0.5f),
-            D * 0.5f - 1.f,
-            rgba4F(ccc3(0x04, 0x0e, 0x28), alpha),
-            1.3f,
-            rgba4F(ThemeConfig::getMenuAccent(), std::min(1.f, alpha + 0.12f)),
-            36
-        );
+        drawThinEditorButtonRing(m_ring, D, alpha);
     }
 
     void setVisualFeedback(bool active, bool dragging) {
-        float alpha = active ? (ACTIVE_OPACITY / 255.f) : (IDLE_OPACITY / 255.f);
+        GLubyte idleByte = this->getIdleOpacityByte();
+        GLubyte curByte = active ? std::max(idleByte, ACTIVE_OPACITY) : idleByte;
+        float alpha = curByte / 255.f;
         this->drawRingWithAlpha(alpha);
         if (m_iconRgba) {
-            m_iconRgba->setOpacity(active ? ACTIVE_OPACITY : IDLE_OPACITY);
+            m_iconRgba->setOpacity(curByte);
         }
         if (m_visual) {
             if (dragging) {
@@ -118,6 +134,17 @@ protected:
 public:
     void refreshTheme() {
         this->setVisualFeedback(m_down, m_dragging);
+    }
+
+    void resetToDefaultPosition() {
+        auto win = CCDirector::get()->getWinSize();
+        float defX = win.width * 0.34f;
+        float defY = win.height - 28.f;
+        this->setPosition({defX, defY});
+        Mod::get()->setSavedValue<float>("btn-x", defX);
+        Mod::get()->setSavedValue<float>("btn-y", defY);
+        (void)Mod::get()->saveData();
+        this->refreshTheme();
     }
 
     static DragButton* create(CCNode* visual, std::function<void()> onTap) {
@@ -143,7 +170,6 @@ public:
                 }
             }
 
-            // Indispensable en Cocos2d-x para que CCLayer::onEnter() llame a registerWithTouchDispatcher()
             r->setTouchMode(kCCTouchesOneByOne);
             r->setTouchEnabled(true);
             r->setVisualFeedback(false, false);
@@ -154,8 +180,6 @@ public:
     }
 
     void registerWithTouchDispatcher() override {
-        // Prioridad -250: por encima de EditorUI (0) y CCMenu del editor (-128),
-        // pero por debajo de cualquier popup FLAlertLayer (-501 o menor).
         CCTouchDispatcher::get()->addTargetedDelegate(this, -250, true);
     }
 
@@ -201,6 +225,7 @@ public:
         if (wasDragging) {
             Mod::get()->setSavedValue<float>("btn-x", this->getPositionX());
             Mod::get()->setSavedValue<float>("btn-y", this->getPositionY());
+            (void)Mod::get()->saveData();
         } else if (m_onTap) {
             m_onTap();
         }
@@ -214,10 +239,10 @@ public:
 };
 
 inline CCNode* makeEditorButtonVisual() {
-    // Boton circular flotante con ~55% de opacidad (50%-60% de transparencia)
     constexpr float D = 34.f;
-    constexpr GLubyte IDLE_ALPHA_BYTE = 140; // ~55%
-    constexpr float IDLE_ALPHA_FLOAT = IDLE_ALPHA_BYTE / 255.f;
+    int pct = ThemeConfig::getEditorBtnOpacityPct();
+    GLubyte idleByte = static_cast<GLubyte>(std::clamp((pct * 255) / 100, 40, 255));
+    float idleFloat = idleByte / 255.f;
 
     auto btnVisual = CCNode::create();
     btnVisual->setContentSize({D, D});
@@ -226,28 +251,20 @@ inline CCNode* makeEditorButtonVisual() {
 
     auto ring = CCDrawNode::create();
     ring->setTag(101);
-    ui::drawCircleShape(
-        ring,
-        ccp(D * 0.5f, D * 0.5f),
-        D * 0.5f - 1.f,
-        rgba4F(ccc3(0x04, 0x0e, 0x28), IDLE_ALPHA_FLOAT),
-        1.3f,
-        rgba4F(ThemeConfig::getMenuAccent(), std::min(1.f, IDLE_ALPHA_FLOAT + 0.12f)),
-        36
-    );
+    drawThinEditorButtonRing(ring, D, idleFloat);
     btnVisual->addChild(ring, 1);
 
     if (auto icon = CCSprite::create("editor-btn.png"_spr)) {
         icon->setTag(102);
-        icon->setScale((D * 0.64f) / std::max(icon->getContentWidth(), icon->getContentHeight()));
-        icon->setOpacity(IDLE_ALPHA_BYTE);
+        icon->setScale((D * 0.70f) / std::max(icon->getContentWidth(), icon->getContentHeight()));
+        icon->setOpacity(idleByte);
         icon->setPosition({D * 0.5f, D * 0.5f});
         btnVisual->addChild(icon, 2);
     } else {
         auto lbl = CCLabelBMFont::create("IA", "bigFont.fnt");
         lbl->setTag(102);
         lbl->setScale(0.45f);
-        lbl->setOpacity(IDLE_ALPHA_BYTE);
+        lbl->setOpacity(idleByte);
         lbl->setPosition({D * 0.5f, D * 0.5f});
         btnVisual->addChild(lbl, 2);
     }
