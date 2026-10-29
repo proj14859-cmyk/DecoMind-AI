@@ -1,6 +1,6 @@
 #pragma once
 // ===========================================================================
-// DecoMind AI v0.3.7-alpha - Capa de Gestion de Modos y Estado
+// DecoMind AI v0.3.8-alpha - Capa de Gestion de Modos y Estado
 //
 // Define los 9 modos de construccion y decoracion con sus categorias,
 // desplazamientos cromaticos vecinos (±28 grados de matiz segun el PDF),
