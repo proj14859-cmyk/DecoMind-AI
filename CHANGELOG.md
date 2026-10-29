@@ -6,6 +6,22 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 
 ---
 
+## [0.3.7-alpha] - 2026-10-29 — Conversación, datos reales y pulido del menú
+
+### Cambiado
+- El chat conserva hasta 100 mensajes enviados y respuestas con hora en `conversacion.txt`, muestra burbujas en una zona desplazable y deja el modo activo como texto informativo. Se elimina la insignia interna de estado y la nota bajo la entrada.
+- La cabecera de conexión ya no cambia el modo al tocarla. En modo servidor indica conexión confirmada tras una respuesta correcta o falta de conexión tras un fallo; antes de la primera prueba permanece desconectada. El modo local se identifica por separado.
+- La selección de una tarjeta de Inicio o una fila de Información actualiza el modo sin reconstruir todo el menú. Se corrige la posición del robot superior y se añade una oscilación suave a ambos robots; el texto del aliado se acerca al icono.
+- La lista desplegada de fuentes bloquea el desplazamiento de Ajustes mientras se utiliza. Se elimina el botón redundante de rueda cromática y el subtítulo superpuesto del selector.
+- Los contadores comienzan en cero; los gráficos semanales y de modos se alimentan del historial real y el historial vacío deja de inventar mensajes. Las solicitudes fallidas no aumentan el total de acciones completadas.
+- Los supuestos respaldos solo contenían metadatos, no objetos restaurables. La interfaz los denomina registros informativos y deja de ofrecer una acción RESTAURAR que no podía funcionar.
+
+### Limitaciones
+- La conexión se comprueba al abrir el menú y cada 15 segundos mediante GET al servidor. El historial de conversación se guarda por instalación del mod, no por nivel.
+- La compilación y la interacción táctil final requieren un SDK de Geode y una prueba en Geometry Dash; no se incluyen binarios compilados.
+
+---
+
 ## [0.3.6-alpha] - 2026-10-29 — Rediseño Completo de UI, Paleta Cromática HSL y Selector de Fuentes del Juego
 
 ###  (`src/main.cpp`, `src/UIRenderer.hpp`, `src/Modes.hpp`)

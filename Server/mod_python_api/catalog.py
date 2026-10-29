@@ -1,4 +1,4 @@
-"""Catalogo de objetos de GD 2.2 para DecoMind AI (v0.3.6-alpha).
+"""Catalogo de objetos de GD 2.2 para DecoMind AI (v0.3.7-alpha).
 
 Fuentes (se combinan):
   1. data/catalog_curated.json  - IDs oficiales de uso comun (bloques, outlines,
@@ -19,7 +19,7 @@ import re
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 GAMEPLAY_CATS = {"solid", "hazard", "portal", "speed", "pad", "orb"}
 
-# Categorias que cada modo puede colocar en v0.3.6-alpha.
+# Categorias que cada modo puede colocar en v0.3.7-alpha.
 MODE_CATS = {
     "layout":       {"solid", "hazard", "portal", "speed", "pad", "orb"},
     "layout_deco":  {"solid", "hazard", "portal", "speed", "pad", "orb", "deco", "trigger"},

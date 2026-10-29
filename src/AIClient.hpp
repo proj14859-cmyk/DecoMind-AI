@@ -1,6 +1,6 @@
 #pragma once
 // ===========================================================================
-// DecoMind AI v0.3.6-alpha - Capa de Comunicacion con el Servidor / Proveedor IA
+// DecoMind AI v0.3.7-alpha - Capa de Comunicacion con el Servidor / Proveedor IA
 //
 // Desacopla la interfaz visual de la red y del proveedor de IA.
 // Construye las peticiones adjuntando internamente:
@@ -36,6 +36,15 @@ public:
 
     bool isBusy() const {
         return m_busy;
+    }
+
+    void checkConnection(std::function<void(bool)> callback) {
+        auto req = web::WebRequest();
+        req.timeout(std::chrono::seconds(4));
+        m_statusTask.spawn("decomind-ai-status", req.get(getServerUrl()),
+            [callback](web::WebResponse response) {
+                if (callback) callback(response.ok());
+            });
     }
 
     void cancel() {
@@ -221,6 +230,7 @@ private:
     bool m_busy = false;
     async::TaskHolder<web::WebResponse> m_task;
     async::TaskHolder<web::WebResponse> m_catalogTask;
+    async::TaskHolder<web::WebResponse> m_statusTask;
 
     static std::string extractField(std::string const& body, std::string const& key) {
         std::string prefix = key + ":";

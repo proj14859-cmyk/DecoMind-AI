@@ -27,8 +27,50 @@ struct FavoriteEntry {
     std::string prompt;
 };
 
+struct ChatMessage {
+    bool fromUser = false;
+    std::string text;
+    std::time_t timestamp = 0;
+};
+
 class HistoryManager {
 public:
+    static std::vector<ChatMessage>& chatMessages() {
+        static std::vector<ChatMessage> messages;
+        return messages;
+    }
+    static std::filesystem::path chatPath() {
+        return Mod::get()->getSaveDir() / "conversacion.txt";
+    }
+    static void loadChat() {
+        auto& messages = chatMessages();
+        messages.clear();
+        auto res = utils::file::readString(chatPath());
+        if (!res.isOk()) return;
+        std::string data = res.unwrap();
+        size_t pos = 0;
+        while (pos < data.size()) {
+            size_t end = data.find('\n', pos);
+            if (end == std::string::npos) end = data.size();
+            auto line = data.substr(pos, end - pos);
+            pos = end + 1;
+            auto first = line.find('\t');
+            auto second = first == std::string::npos ? first : line.find('\t', first + 1);
+            if (second == std::string::npos) continue;
+            messages.push_back({line[0] == 'U', line.substr(second + 1),
+                static_cast<std::time_t>(std::atoll(line.substr(first + 1, second - first - 1).c_str()))});
+        }
+        if (messages.size() > 100) messages.erase(messages.begin(), messages.end() - 100);
+    }
+    static void addChatMessage(bool fromUser, std::string const& text) {
+        auto& messages = chatMessages();
+        messages.push_back({fromUser, oneLineStr(sanitizeForGD(text)), std::time(nullptr)});
+        if (messages.size() > 100) messages.erase(messages.begin());
+        std::string out;
+        for (auto const& m : messages) out += std::string(m.fromUser ? "U\t" : "A\t") +
+            std::to_string(static_cast<long long>(m.timestamp)) + "\t" + oneLineStr(m.text) + "\n";
+        (void)utils::file::writeString(chatPath(), out);
+    }
     static std::vector<HistoryEntry>& entries() {
         static std::vector<HistoryEntry> list;
         return list;
@@ -57,6 +99,7 @@ public:
         loaded = true;
         loadHistoryFromDisk();
         loadFavoritesFromDisk();
+        loadChat();
     }
 
     static void loadHistoryFromDisk() {

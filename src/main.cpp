@@ -1,5 +1,5 @@
 // ===========================================================================
-// DecoMind AI v0.3.6-alpha - Interfaz UI Completa Fiel al PDF Oficial
+// DecoMind AI v0.3.7-alpha - Interfaz UI Completa Fiel al PDF Oficial
 //
 // Implementa las 6 paginas de DecoMind_AI_interfaz_pulida.pdf:
 //   - Pagina 1 (INICIO): Cuadricula 3x3 deslizable con el dedo, tarjetas con
@@ -562,7 +562,7 @@ protected:
         m_mainLayer->addChild(m_scroll, 5);
         m_modalScroll = m_scroll;
 
-        auto snapSpr = this->makeStyledActionBtn("Crear punto de guardado ahora", 196.f, 22.f, pal.accent, pal.accent, true);
+        auto snapSpr = this->makeStyledActionBtn("Registrar estado actual", 196.f, 22.f, pal.accent, pal.accent, true);
         auto snapBtn = CCMenuItemExt::createSpriteExtra(snapSpr, [this](CCMenuItemSpriteExtra*) {
             std::string msg;
             LevelExecutor::saveLevelSnapshot(m_lel, msg);
@@ -772,7 +772,7 @@ public:
 };
 
 // ===========================================================================
-// Menu Principal de DecoMind AI v0.3.6-alpha (Fidelidad Total al PDF)
+// Menu Principal de DecoMind AI v0.3.7-alpha (Fidelidad Total al PDF)
 // ===========================================================================
 class DecoMindPopup : public Popup, public cocos2d::extension::ColorPickerDelegate {
 protected:
@@ -783,12 +783,16 @@ protected:
     int m_activePage = 0;   // 0=INICIO, 1=INFORMACION, 2=CHAT, 3=ESTADISTICAS, 4=AJUSTES
     int m_sessionRequests = 0;
     int m_sessionPlacedObjects = 0;
+    bool m_canUndoAiAction = false;
 
-    std::string m_lastUserBubbleText = "Genera una estructura pequena con un salto de tres pinchos";
-    std::string m_lastReplyText = "Coloque una plataforma de 6 bloques con tres picos seguidos y un salto superable de 2 bloques de alto. Los picos usan el ID 8 y el suelo el ID 1.";
-    std::string m_lastSummaryPill1 = "3 x pico (ID 8)";
-    std::string m_lastSummaryPill2 = "6 x bloque (ID 1)";
-    std::string m_lastSummaryPill3 = "x 300 -> 480";
+    std::string m_lastUserBubbleText;
+    std::string m_lastReplyText;
+    std::string m_lastSummaryPill1;
+    std::string m_lastSummaryPill2;
+    std::string m_lastSummaryPill3;
+    bool m_serverReachable = false;
+    bool m_serverChecked = false;
+    float m_connectionCheckTimer = 15.f;
     std::string m_savedPromptText;
 
     float m_animTime = 0.f;
@@ -800,6 +804,7 @@ protected:
     CCDrawNode* m_outerFrameNode = nullptr;
     CCDrawNode* m_spikesRgbNode = nullptr;
     CCNode* m_mascotTop = nullptr;
+    float m_headerRobotBaseScale = 1.f;
 
     // Header dinamico (cambia titulo y subtitulo segun la pagina activa, igual al PDF)
     CCLabelBMFont* m_headerTitleLbl = nullptr;
@@ -841,6 +846,7 @@ protected:
     CCLabelBMFont* m_chatStateBadgeLbl = nullptr;
     CCLabelBMFont* m_chatUserBubbleLbl = nullptr;
     CCLabelBMFont* m_chatAiBubbleLbl = nullptr;
+    ScrollLayer* m_chatScroll = nullptr;
     CCLabelBMFont* m_chatPillLbls[3] = {nullptr, nullptr, nullptr};
     CCLabelBMFont* m_chatRightLevelLbl = nullptr;
     CCLabelBMFont* m_chatRightSelLbl = nullptr;
@@ -911,6 +917,7 @@ protected:
     CCDrawNode* m_allyBgNode = nullptr;
     CCDrawNode* m_allyBorderNode = nullptr;
     CCNode* m_allyRobotNode = nullptr;
+    float m_allyRobotBaseScale = 1.f;
     CCLabelBMFont* m_allyLine1 = nullptr;
     std::vector<std::string> m_phrases;
     size_t m_phraseIdx = 0;
@@ -989,6 +996,7 @@ protected:
         m_fontDropdownOverlay = nullptr;
         m_fontDropdownScroll = nullptr;
         m_fontDropdownOpen = false;
+        m_chatScroll = nullptr;
         m_fontLoadingOverlay = nullptr;
 
         m_outerFrameNode = CCDrawNode::create();
@@ -1100,6 +1108,8 @@ protected:
 
         // Mascota robot centrada en x_ref = 768 sobre la linea divisoria
         m_mascotTop = ui::createRobotMascotNode(true);
+        if (auto face = typeinfo_cast<CCSprite*>(m_mascotTop->getChildByTag(301)))
+            m_headerRobotBaseScale = face->getScale();
         auto mascotBtn = CCMenuItemExt::createSpriteExtra(
             m_mascotTop, [this](CCMenuItemSpriteExtra*) { this->nextAllyPhrase(); }
         );
@@ -1107,7 +1117,7 @@ protected:
         mascotBtn->setPosition({px(768.f), py(64.f)});
         m_fixedMenu->addChild(mascotBtn);
 
-        // Pildora de estado de conexion (derecha) + Pildora de version ("v0.3.6 a")
+        // Pildora de estado de conexion (derecha) + Pildora de version ("v0.3.7 a")
         m_connPillDn = CCDrawNode::create();
         m_mainLayer->addChild(m_connPillDn, 14);
 
@@ -1118,24 +1128,14 @@ protected:
             m_mainLayer->addChild(m_connPillLbl, 15);
         }
 
-        // Al tocar la pildora de conexion en el header, alterna rapidamente entre Modo AI y Modo local
-        auto connHit = CCNode::create();
-        connHit->setContentSize({ps(224.f), ps(38.f)});
-        auto connBtn = CCMenuItemExt::createSpriteExtra(connHit, [this](CCMenuItemSpriteExtra*) {
-            std::string cur = AIClient::getOriginMode();
-            AIClient::setOriginMode(cur == "local" ? "server" : "local");
-            this->scheduleRebuild();
-        });
-        connBtn->m_scaleMultiplier = 1.0f;
-        connBtn->setPosition({px(1306.f), py(66.f)});
-        m_fixedMenu->addChild(connBtn);
+        // Estado informativo; el cambio de modo se hace exclusivamente en Ajustes.
 
         ui::addRefRoundedBox(
             m_mainLayer,
             1426.f, 47.f, 82.f, 38.f, 12.f,
             pal.card, 0.98f, pal.line, 0.90f, 1.2f, 14
         );
-        if (auto verLbl = ui::createStyledLabel("v0.3.6 a", false, 0.40f, pal.text2, ps(74.f))) {
+        if (auto verLbl = ui::createStyledLabel("v0.3.7 a", false, 0.40f, pal.text2, ps(74.f))) {
             verLbl->setPosition({px(1467.f), py(66.f)});
             m_mainLayer->addChild(verLbl, 15);
         }
@@ -1156,13 +1156,13 @@ protected:
             ps(1.2f),
             rgba4F(pal.line, 0.90f)
         );
-        ccColor3B dotCol = isLocal ? COL_STATUS_AMBER : COL_STATUS_GREEN;
+        ccColor3B dotCol = isLocal ? COL_STATUS_AMBER : (m_serverReachable ? COL_STATUS_GREEN : COL_STATUS_RED);
         m_connPillDn->drawDot(ccp(px(1211.f), py(66.f)), ps(5.0f), rgba4F(dotCol, 1.f));
 
         if (m_connPillLbl) {
             fitBMFontLabel(
                 m_connPillLbl,
-                isLocal ? "Modo local activo" : "Servidor local conectado",
+                isLocal ? "Modo local activo" : (!m_serverChecked ? "Comprobando servidor" : (m_serverReachable ? "Servidor conectado" : "Servidor sin conexion")),
                 ps(184.f), 0.41f
             );
             m_connPillLbl->setColor(pal.text2);
@@ -1323,6 +1323,7 @@ protected:
 
             // 1. Fondo de tarjeta (Tarjeta 36/12 o Elevado 32/17 cuando esta activa)
             auto bgDn = CCDrawNode::create();
+            bgDn->setTag(790);
             ui::drawRoundedRect(
                 bgDn, 0.f, 0.f, cardW, cardH, ps(16.f),
                 rgba4F(isSel ? pal.elevated : pal.card, 0.98f),
@@ -1338,6 +1339,7 @@ protected:
 
             // 3. Recuadro de icono arriba a la izquierda (48x48 ref)
             auto iconBadge = ui::createModeIconBadge(i, isSel, 50.f, 13.f);
+            iconBadge->setTag(791);
             iconBadge->ignoreAnchorPointForPosition(false);
             iconBadge->setAnchorPoint({0.f, 1.f});
             iconBadge->setPosition({ps(22.f), cardH - ps(22.f)});
@@ -1346,6 +1348,7 @@ protected:
             // 4. Circulo de check arriba a la derecha cuando la tarjeta esta seleccionada (fiel a Pagina 1)
             if (isSel) {
                 auto chkDn = CCDrawNode::create();
+                chkDn->setTag(792);
                 CCPoint chkCenter = ccp(cardW - ps(34.f), cardH - ps(46.f));
                 ui::drawCircleShape(
                     chkDn, chkCenter, ps(12.f),
@@ -1354,6 +1357,7 @@ protected:
                 cardNode->addChild(chkDn, 4);
                 if (auto chkSpr = ui::createFitSprite("ui-check.png"_spr, ps(13.f), ps(13.f), chkCenter)) {
                     chkSpr->setColor(pal.inkOnAccent);
+                    chkSpr->setTag(793);
                     cardNode->addChild(chkSpr, 5);
                 }
             }
@@ -1534,7 +1538,7 @@ protected:
             }
             hDn->drawDot(ccp(px(rx + 30.f), py(rowY)), ps(4.2f), rgba4F(pal.modeAccent(r * 3), 1.f));
 
-            outTexts[r] = ui::createStyledLabel("", false, 0.41f, pal.text, ps(rw - 134.f));
+            outTexts[r] = ui::createStyledLabel("", false, 0.36f, pal.text, ps(rw - 150.f));
             if (outTexts[r]) {
                 outTexts[r]->setAnchorPoint({0.f, 0.5f});
                 outTexts[r]->setPosition({px(rx + 46.f), py(rowY)});
@@ -1722,7 +1726,7 @@ protected:
         auto guideArea = SimpleTextArea::create(
             ThemeConfig::formatTextForActiveFont(m.userGuide),
             ThemeConfig::getActiveFontFile(false),
-            0.48f * ThemeConfig::getActiveFontScaleMul(false),
+            0.40f * ThemeConfig::getActiveFontScaleMul(false),
             ps(740.f)
         );
         guideArea->setWrappingMode(WORD_WRAP);
@@ -1848,71 +1852,24 @@ protected:
         pageMenu->setPosition({0.f, 0.f});
         page->addChild(pageMenu, 12);
 
-        // Selector desplegable de modo en la barra superior de Chat ("Layout v")
-        auto modePillNode = CCNode::create();
-        modePillNode->setContentSize({ps(140.f), ps(36.f)});
-        auto mpDn = CCDrawNode::create();
-        ui::drawRoundedRect(
-            mpDn, 0.f, 0.f, ps(140.f), ps(36.f), ps(10.f),
-            rgba4F(pal.elevated, 0.98f), ps(1.0f), rgba4F(pal.lineStrong, 0.9f)
-        );
-        modePillNode->addChild(mpDn, 1);
-
+        // Nombre del modo: indicador informativo; se elige en Inicio o Informacion.
         int safeM = (m_selectedMode >= 0 && m_selectedMode < 9) ? m_selectedMode : 0;
-        m_chatModeBtnLbl = ui::createStyledLabel(std::string(MODES[safeM].name) + " v", false, 0.41f, pal.accentSoft, ps(122.f));
+        m_chatModeBtnLbl = ui::createStyledLabel(MODES[safeM].name, false, 0.41f, pal.accentSoft, ps(180.f));
         if (m_chatModeBtnLbl) {
-            m_chatModeBtnLbl->setPosition({ps(70.f), ps(18.f)});
-            modePillNode->addChild(m_chatModeBtnLbl, 2);
+            m_chatModeBtnLbl->setAnchorPoint({0.f, 0.5f});
+            m_chatModeBtnLbl->setPosition({px(340.f), py(164.f)});
+            page->addChild(m_chatModeBtnLbl, 5);
         }
-        auto modeCycleBtn = CCMenuItemExt::createSpriteExtra(modePillNode, [this](CCMenuItemSpriteExtra*) {
-            int next = (m_selectedMode + 1) % 9;
-            this->selectMode(next);
-        });
-        modeCycleBtn->m_scaleMultiplier = 1.03f;
-        modeCycleBtn->setPosition({px(404.f), py(164.f)});
-        pageMenu->addChild(modeCycleBtn);
-
-        if (auto stTitle = ui::createStyledLabel("ESTADO DE LA IA", true, 0.21f, pal.text3, ps(180.f))) {
-            stTitle->setAnchorPoint({1.f, 0.5f});
-            stTitle->setPosition({px(1018.f), py(164.f)});
-            page->addChild(stTitle, 5);
-        }
-        m_chatStateBadgeDn = CCDrawNode::create();
-        ui::drawRoundedRect(
-            m_chatStateBadgeDn, px(1030.f), py(180.f), ps(80.f), ps(32.f), ps(8.f),
-            rgba4F(ccc3(0x0b, 0x3b, 0x2e), 0.98f), ps(1.0f), rgba4F(COL_STATUS_GREEN, 0.85f)
-        );
-        page->addChild(m_chatStateBadgeDn, 4);
-
-        m_chatStateBadgeLbl = ui::createStyledLabel("LISTO", true, 0.21f, COL_STATUS_GREEN, ps(70.f));
-        if (m_chatStateBadgeLbl) {
-            m_chatStateBadgeLbl->setPosition({px(1070.f), py(164.f)});
-            page->addChild(m_chatStateBadgeLbl, 5);
-        }
-
-        // Burbuja derecha del usuario en color Acento (92/64) con texto en Tinta sobre acento (70/8)
-        ui::addRefRoundedBox(
-            page, 560.f, 224.f, 550.f, 64.f, 16.f,
-            pal.accent, 0.98f, pal.accentSoft, 0.45f, 1.0f, 3
-        );
-        m_chatUserBubbleLbl = ui::createStyledLabel(m_lastUserBubbleText, false, 0.44f, pal.inkOnAccent, ps(516.f));
-        if (m_chatUserBubbleLbl) {
-            m_chatUserBubbleLbl->setAnchorPoint({0.f, 0.5f});
-            m_chatUserBubbleLbl->setPosition({px(580.f), py(256.f)});
-            page->addChild(m_chatUserBubbleLbl, 5);
-        }
-
-        // Burbuja izquierda de respuesta de la IA en Tarjeta (36/12)
-        ui::addRefRoundedBox(
-            page, 278.f, 314.f, 706.f, 102.f, 16.f,
-            pal.card, 0.98f, pal.line, 0.90f, 1.2f, 3
-        );
-        m_chatAiBubbleLbl = ui::createStyledLabel(m_lastReplyText, false, 0.43f, pal.text, ps(668.f));
-        if (m_chatAiBubbleLbl) {
-            m_chatAiBubbleLbl->setAnchorPoint({0.f, 0.5f});
-            m_chatAiBubbleLbl->setPosition({px(298.f), py(365.f)});
-            page->addChild(m_chatAiBubbleLbl, 5);
-        }
+        m_chatStateBadgeDn = nullptr;
+        m_chatStateBadgeLbl = nullptr;
+        m_chatUserBubbleLbl = nullptr;
+        m_chatAiBubbleLbl = nullptr;
+        m_chatScroll = ScrollLayer::create(CCSize{ps(834.f), ps(370.f)});
+        m_chatScroll->ignoreAnchorPointForPosition(false);
+        m_chatScroll->setAnchorPoint({0.5f, 0.5f});
+        m_chatScroll->setPosition({px(695.f), py(404.f)});
+        page->addChild(m_chatScroll, 5);
+        this->refreshConversation();
 
         // 3 Pildoras de resumen debajo de la burbuja de la IA (fiel a Pagina 3 del PDF)
         const float pillX[3] = {278.f, 418.f, 564.f};
@@ -1923,22 +1880,23 @@ protected:
             m_lastSummaryPill3.c_str()
         };
         for (int k = 0; k < 3; ++k) {
-            ui::addRefRoundedBox(
-                page, pillX[k], 432.f, pillW[k], 34.f, 10.f,
-                pal.bgOuter, 0.98f, pal.line, 0.90f, 1.0f, 3
-            );
+            // Las etiquetas de resumen pertenecen a cada mensaje, no al panel fijo.
             m_chatPillLbls[k] = ui::createStyledLabel(initPills[k], false, 0.37f, pal.text2, ps(pillW[k] - 16.f));
             if (m_chatPillLbls[k]) {
-                m_chatPillLbls[k]->setPosition({px(pillX[k] + pillW[k] * 0.5f), py(449.f)});
-                page->addChild(m_chatPillLbls[k], 5);
+                m_chatPillLbls[k]->setVisible(false);
             }
         }
 
         // Botones DESHACER y GUARDAR EN FAVORITOS debajo de la respuesta
         auto undoSpr = ui::makeCustomMenuBtn("DESHACER", ps(118.f), ps(40.f), pal.card, pal.lineStrong, 0.22f, false, ps(10.f));
         auto undoBtn = CCMenuItemExt::createSpriteExtra(undoSpr, [this](CCMenuItemSpriteExtra*) {
+            if (!m_canUndoAiAction) {
+                this->updateChatStatusText("AVISO", COL_STATUS_AMBER, "Aun no hay una accion de la IA para deshacer.");
+                return;
+            }
             if (auto ui = EditorUI::get()) {
                 ui->undoLastAction(nullptr);
+                m_canUndoAiAction = false;
                 this->updateChatStatusText("DESHECHO", COL_STATUS_AMBER, "Se deshizo la ultima accion en el editor.");
             }
         });
@@ -1949,7 +1907,11 @@ protected:
         auto favSpr = ui::makeCustomMenuBtn("GUARDAR EN FAVORITOS", ps(216.f), ps(40.f), pal.card, pal.lineStrong, 0.22f, false, ps(10.f));
         auto favBtn = CCMenuItemExt::createSpriteExtra(favSpr, [this](CCMenuItemSpriteExtra*) {
             std::string curModeId = (m_selectedMode >= 0) ? MODES[m_selectedMode].id : "deco";
-            std::string pToSave = !m_lastUserBubbleText.empty() ? m_lastUserBubbleText : "Genera una estructura pequena";
+            if (m_lastUserBubbleText.empty()) {
+                this->updateChatStatusText("AVISO", COL_STATUS_AMBER, "Envia primero un mensaje para guardarlo en Favoritos.");
+                return;
+            }
+            std::string pToSave = m_lastUserBubbleText;
             HistoryManager::addFavorite(curModeId, pToSave);
             this->updateChatStatusText("FAVORITO GUARDADO", COL_STATUS_GREEN, "Comando guardado en tu lista de Favoritos.");
         });
@@ -1987,14 +1949,7 @@ protected:
             pageMenu->addChild(chipBtn);
         }
 
-        if (auto footHelp = ui::createStyledLabel(
-            "El texto crece hacia arriba: nunca se encoge ni se borra. Acepta n y acentos.",
-            false, 0.36f, pal.text3, ps(660.f)
-        )) {
-            footHelp->setAnchorPoint({0.f, 0.5f});
-            footHelp->setPosition({px(280.f), py(856.f)});
-            page->addChild(footHelp, 5);
-        }
+        // El campo de entrada conserva un pie despejado.
 
         // --- COLUMNA DERECHA DE PAGINA 2 (x_ref = 1150..1508) ---
         // Card 1: LO QUE VE LA IA (y_top_ref = 128..366)
@@ -2093,6 +2048,78 @@ protected:
 
         // Card 3: HISTORIAL en Pagina 2 (y_top_ref = 630..880)
         this->buildMiniHistoryCard(page, 1150.f, 630.f, 358.f, 250.f, m_chatHistRowText, m_chatHistRowTime);
+    }
+
+    void refreshConversation() {
+        if (!m_chatScroll || !m_chatScroll->m_contentLayer) return;
+        auto layer = m_chatScroll->m_contentLayer;
+        layer->removeAllChildren();
+        auto pal = ThemeConfig::getPalette();
+        auto const& messages = HistoryManager::chatMessages();
+        float viewW = ps(834.f), viewH = ps(370.f);
+        if (messages.empty()) {
+            layer->setContentSize({viewW, viewH});
+            if (auto lbl = ui::createStyledLabel("Escribe un mensaje para comenzar.", false, 0.42f, pal.text3, ps(700.f))) {
+                lbl->setPosition({viewW * .5f, viewH * .5f});
+                layer->addChild(lbl);
+            }
+            layer->setPositionY(0.f);
+            return;
+        }
+        struct Row { std::string text; std::string time; bool user; float height; };
+        std::vector<Row> rows;
+        float totalH = ps(12.f);
+        for (auto const& msg : messages) {
+            std::string wrapped;
+            std::string line;
+            std::string word;
+            auto flush = [&]() {
+                if (word.empty()) return;
+                if (!line.empty() && line.size() + word.size() + 1 > 55) {
+                    if (!wrapped.empty()) wrapped += '\n';
+                    wrapped += line;
+                    line.clear();
+                }
+                if (!line.empty()) line += ' ';
+                line += word;
+                word.clear();
+            };
+            for (char ch : msg.text) { if (ch == ' ') flush(); else word += ch; }
+            flush();
+            if (!line.empty()) { if (!wrapped.empty()) wrapped += '\n'; wrapped += line; }
+            int lines = 1 + static_cast<int>(std::count(wrapped.begin(), wrapped.end(), '\n'));
+            char clock[16] = {0};
+            if (auto tm = std::localtime(&msg.timestamp)) std::strftime(clock, sizeof(clock), "%H:%M", tm);
+            float h = ps(std::max(62.f, 34.f + lines * 25.f));
+            rows.push_back({wrapped, clock, msg.fromUser, h});
+            totalH += h + ps(12.f);
+        }
+        totalH = std::max(viewH, totalH);
+        layer->setContentSize({viewW, totalH});
+        float y = totalH - ps(12.f);
+        for (auto const& row : rows) {
+            y -= row.height;
+            float x = row.user ? ps(284.f) : ps(12.f);
+            auto dn = CCDrawNode::create();
+            ui::drawRoundedRect(dn, x, y, ps(538.f), row.height, ps(14.f),
+                rgba4F(row.user ? pal.accent : pal.card, .98f), ps(1.f),
+                rgba4F(row.user ? pal.accentSoft : pal.line, .8f));
+            layer->addChild(dn, 1);
+            if (auto label = ui::createStyledLabel(row.text, false, .43f,
+                    row.user ? pal.inkOnAccent : pal.text, ps(502.f))) {
+                label->setAnchorPoint({0.f, 1.f});
+                label->setPosition({x + ps(16.f), y + row.height - ps(12.f)});
+                layer->addChild(label, 2);
+            }
+            if (auto time = ui::createStyledLabel(row.time, false, .32f,
+                    row.user ? pal.inkOnAccent : pal.text3, ps(80.f))) {
+                time->setAnchorPoint({1.f, 0.f});
+                time->setPosition({x + ps(522.f), y + ps(5.f)});
+                layer->addChild(time, 2);
+            }
+            y -= ps(12.f);
+        }
+        layer->setPositionY(viewH - totalH);
     }
 
     void refreshPage2ChatPerception() {
@@ -2214,9 +2241,9 @@ protected:
         m_chatInputBgDn->clear();
         m_placeholderNode->removeAllChildren();
 
-        float boxW = wideChatMode ? ps(758.f) : ps(352.f);
+        float boxW = wideChatMode ? ps(730.f) : ps(352.f);
         float boxH = wideChatMode ? ps(104.f) : ps(130.f);
-        float totalW = wideChatMode ? ps(836.f) : ps(352.f);
+        float totalW = wideChatMode ? ps(810.f) : ps(352.f);
         float totalH = wideChatMode ? ps(140.f) : ps(196.f);
 
         m_chatInputWidget->setContentSize({totalW, totalH});
@@ -2313,7 +2340,7 @@ protected:
         m_statsContentHolder->removeAllChildren();
 
         auto pal = ThemeConfig::getPalette();
-        int used = Mod::get()->getSavedValue<int>("used", 3);
+        int used = Mod::get()->getSavedValue<int>("used", 0);
         int limit = std::max(1, Mod::get()->getSavedValue<int>("limit", 20));
         int rem = std::max(0, limit - used);
         EditorContextSnapshot ctx = LevelExecutor::scanEditorContext(m_lel);
@@ -2329,7 +2356,7 @@ protected:
         int usedColorsCount = std::max(0, ctx.nextFreeColor - 1);
         KpiCard kpis[4] = {
             {"PETICIONES HOY",    fmt::format("{}", used),                     fmt::format("/ {}", limit), "Quedan " + fmt::format("{} hasta medianoche", rem)},
-            {"OBJETOS COLOCADOS", fmt::format("{}", m_sessionPlacedObjects),   "en esta sesion",           "Ultima: " + m_lastSummaryPill1},
+            {"OBJETOS COLOCADOS", fmt::format("{}", m_sessionPlacedObjects),   "en esta sesion",           m_lastSummaryPill1.empty() ? "Sin acciones aun" : "Ultima: " + m_lastSummaryPill1},
             {"GRUPOS OCUPADOS",   fmt::format("{}", usedGroupsCount),          "de 9 999",                 fmt::format("Siguiente libre: G{}", ctx.nextFreeGroup)},
             {"COLORES OCUPADOS",  fmt::format("{}", usedColorsCount),          "de 999",                   fmt::format("Siguiente libre: C{}", ctx.nextFreeColor)}
         };
@@ -2384,16 +2411,22 @@ protected:
         }
 
         char const* dayLetters[7] = {"L", "M", "X", "J", "V", "S", "D"};
-        int barVals[7] = {4, 7, 5, 9, 6, 8, std::max(1, used)};
+        int barVals[7] = {};
+        std::time_t now = std::time(nullptr);
+        for (auto const& entry : HistoryManager::entries()) {
+            if (entry.timestamp <= 0 || entry.timestamp > now) continue;
+            int ago = static_cast<int>((now - entry.timestamp) / 86400);
+            if (ago >= 0 && ago < 7) ++barVals[6 - ago];
+        }
         auto chartDn = CCDrawNode::create();
         for (int d = 0; d < 7; ++d) {
             float bx = 286.f + d * 94.f;
             float bw = 72.f;
             float maxBarH = 160.f;
-            float bh = std::max(18.f, (static_cast<float>(barVals[d]) / 12.f) * maxBarH);
+            float bh = barVals[d] == 0 ? 0.f : std::max(18.f, (static_cast<float>(barVals[d]) / std::max(12, limit)) * maxBarH);
             float by_bot = 576.f;
             ccColor3B barCol = (d == 6) ? pal.accent : pal.accentDark;
-            ui::drawRoundedRect(
+            if (bh > 0.f) ui::drawRoundedRect(
                 chartDn,
                 px(bx), py(by_bot), ps(bw), ps(bh), ps(8.f),
                 rgba4F(barCol, 0.95f), 0.f, ccc4f(0, 0, 0, 0)
@@ -2421,22 +2454,29 @@ protected:
         }
 
         struct TopModeRow { char const* name; int modeIdx; int count; float frac; };
-        TopModeRow topModes[5] = {
-            {"Layout",       1, 9, 1.00f},
-            {"Deco",         2, 6, 0.67f},
-            {"Triggers",     5, 4, 0.45f},
-            {"Block Design", 4, 3, 0.34f},
-            {"Transiciones", 6, 2, 0.23f}
-        };
+        int counts[9] = {};
+        for (auto const& entry : HistoryManager::entries()) {
+            int idx = modeIndexById(entry.modeId);
+            if (idx >= 0) ++counts[idx];
+        }
+        std::vector<TopModeRow> topModes;
+        for (int i = 0; i < 9; ++i) if (counts[i]) topModes.push_back({MODES[i].name, i, counts[i], 0.f});
+        std::sort(topModes.begin(), topModes.end(), [](auto const& a, auto const& b) { return a.count > b.count; });
+        if (topModes.empty()) {
+            if (auto empty = ui::createStyledLabel("Sin peticiones registradas.", false, .4f, pal.text3, ps(400.f))) {
+                empty->setPosition({px(1248.f), py(470.f)});
+                m_statsContentHolder->addChild(empty, 4);
+            }
+        }
         auto mmDn = CCDrawNode::create();
-        for (int m = 0; m < 5; ++m) {
+        for (int m = 0; m < std::min(5, static_cast<int>(topModes.size())); ++m) {
             float ry = 398.f + m * 46.f;
             if (auto ml = ui::createStyledLabel(topModes[m].name, false, 0.40f, pal.text2, ps(126.f))) {
                 ml->setAnchorPoint({0.f, 0.5f});
                 ml->setPosition({px(1014.f), py(ry)});
                 m_statsContentHolder->addChild(ml, 4);
             }
-            float barW = 304.f * topModes[m].frac;
+            float barW = 304.f * topModes[m].count / std::max(1, topModes[0].count);
             ui::drawRoundedRect(
                 mmDn,
                 px(1148.f), py(ry + 7.f), ps(barW), ps(14.f), ps(7.f),
@@ -2455,7 +2495,7 @@ protected:
             m_statsContentHolder, 254.f, 642.f, 1254.f, 238.f, 18.f,
             pal.panel, 0.98f, pal.line, 0.90f, 1.4f, 2
         );
-        if (auto pgTitle = ui::createStyledLabel("PUNTOS DE GUARDADO", true, 0.22f, pal.text2, ps(340.f))) {
+        if (auto pgTitle = ui::createStyledLabel("REGISTROS DEL NIVEL", true, 0.22f, pal.text2, ps(340.f))) {
             pgTitle->setAnchorPoint({0.f, 0.5f});
             pgTitle->setPosition({px(278.f), py(672.f)});
             m_statsContentHolder->addChild(pgTitle, 4);
@@ -2480,11 +2520,7 @@ protected:
 
         auto snaps = LevelExecutor::listSnapshots();
         struct SnapRowData { std::string name; std::string objs; std::string time; };
-        SnapRowData rows[3] = {
-            {LevelExecutor::getLevelTitle(m_lel), fmt::format("{} objetos", ctx.totalObjects), "Hoy · 14:20"},
-            {"Salto de pinchos v2",               "64 objetos",                                "Ayer · 22:05"},
-            {"Intro neon",                        "230 objetos",                               "24 oct · 19:41"}
-        };
+        SnapRowData rows[3] = {};
         for (size_t s = 0; s < std::min<size_t>(3, snaps.size()); ++s) {
             rows[s].name = snaps[s].levelName;
             rows[s].objs = fmt::format("{} objetos", snaps[s].objectCount);
@@ -2492,7 +2528,13 @@ protected:
         }
 
         auto pgDn = CCDrawNode::create();
-        for (int r = 0; r < 3; ++r) {
+        if (snaps.empty()) {
+            if (auto empty = ui::createStyledLabel("Aun no hay puntos de guardado.", false, .4f, pal.text3, ps(600.f))) {
+                empty->setPosition({px(620.f), py(750.f)});
+                m_statsContentHolder->addChild(empty, 4);
+            }
+        }
+        for (int r = 0; r < std::min(3, static_cast<int>(snaps.size())); ++r) {
             float ry = 720.f + r * 54.f;
             pgDn->drawSegment(
                 ccp(px(278.f), py(ry - 27.f)),
@@ -2518,13 +2560,10 @@ protected:
                 tl->setPosition({px(1364.f), py(ry)});
                 m_statsContentHolder->addChild(tl, 4);
             }
-            auto restSpr = ui::makeCustomMenuBtn("RESTAURAR", ps(102.f), ps(32.f), pal.elevated, pal.lineStrong, 0.20f, false, ps(8.f));
-            auto restBtn = CCMenuItemExt::createSpriteExtra(restSpr, [this](CCMenuItemSpriteExtra*) {
-                if (auto pop = LevelsBackupPopup::create(m_lel)) pop->show();
-            });
-            restBtn->m_scaleMultiplier = 1.03f;
-            restBtn->setPosition({px(1434.f), py(ry)});
-            stMenu->addChild(restBtn);
+            if (auto info = ui::createStyledLabel("REGISTRO", false, .34f, pal.text3, ps(102.f))) {
+                info->setPosition({px(1434.f), py(ry)});
+                m_statsContentHolder->addChild(info, 4);
+            }
         }
         m_statsContentHolder->addChild(pgDn, 3);
     }
@@ -2718,14 +2757,7 @@ protected:
             sMenu->addChild(cBtn);
         }
 
-        auto wheelBtnSpr = ui::makeCustomMenuBtn("RUEDA DE COLOR", ps(196.f), ps(42.f), pal.elevated, pal.lineStrong, 0.21f, false, ps(10.f));
-        auto wheelBtn = CCMenuItemExt::createSpriteExtra(wheelBtnSpr, [this, pal](CCMenuItemSpriteExtra*) {
-            m_colorEditTarget = 0;
-            this->setEmbeddedPickerColor(pal.accent, "RUEDA: COLOR DEL MENU");
-        });
-        wheelBtn->m_scaleMultiplier = 1.03f;
-        wheelBtn->setPosition({ps(692.f), yFromTop(362.f)});
-        sMenu->addChild(wheelBtn);
+        // La rueda de color ya esta disponible en el panel derecho.
 
         // --- TARJETA 4: Flujo RGB en contornos (yTop=416, h=96) ---
         drawSettingCard(416.f, 96.f);
@@ -2981,11 +3013,6 @@ protected:
             m_embTargetTitleLbl->setAnchorPoint({0.f, 0.5f});
             m_embTargetTitleLbl->setPosition({px(1108.f), py(162.f)});
             page->addChild(m_embTargetTitleLbl, 5);
-        }
-        if (auto rwSub = ui::createStyledLabel("Rueda oficial de GD", false, 0.38f, pal.text3, ps(160.f))) {
-            rwSub->setAnchorPoint({1.f, 0.5f});
-            rwSub->setPosition({px(1484.f), py(162.f)});
-            page->addChild(rwSub, 5);
         }
 
         // Rueda nativa oficial CCControlColourPicker en el centro del panel derecho
@@ -3290,6 +3317,7 @@ protected:
         if (!m_fontDropdownOverlay) return;
         m_fontDropdownOpen = !m_fontDropdownOpen;
         m_fontDropdownOverlay->setVisible(m_fontDropdownOpen);
+        if (m_settingsScroll) m_settingsScroll->setTouchEnabled(!m_fontDropdownOpen);
     }
 
     // Activa la pantalla ligeramente oscurecida y borrosa con el mensaje
@@ -3298,6 +3326,7 @@ protected:
         if (m_fontDropdownOverlay) {
             m_fontDropdownOverlay->setVisible(false);
             m_fontDropdownOpen = false;
+            if (m_settingsScroll) m_settingsScroll->setTouchEnabled(true);
         }
         if (m_fontLoadingOverlay) {
             m_fontLoadingOverlay->removeFromParent();
@@ -3440,6 +3469,8 @@ protected:
                 // Tocar fuera del dropdown lo cierra
                 m_fontDropdownOpen = false;
                 m_fontDropdownOverlay->setVisible(false);
+                if (m_settingsScroll) m_settingsScroll->setTouchEnabled(true);
+                return true;
             }
         }
 
@@ -3523,7 +3554,7 @@ protected:
             }
             if (!m_touchDragging && m_pressedItemIdx >= 0 && m_pressedItemIdx < 9) {
                 this->selectMode(m_pressedItemIdx);
-                this->scheduleRebuild();
+                this->refreshSelectedModeCards();
             }
             m_touchScrollTarget = 0;
             m_touchDragging = false;
@@ -3534,7 +3565,7 @@ protected:
         if (m_touchScrollTarget == 2) {
             if (!m_touchDragging && m_pressedItemIdx >= 0 && m_pressedItemIdx < 9) {
                 this->selectMode(m_pressedItemIdx);
-                this->scheduleRebuild();
+                this->refreshSelectedModeCards();
             }
             m_touchScrollTarget = 0;
             m_touchDragging = false;
@@ -3575,10 +3606,44 @@ protected:
         if (m_activeModeValLbl) {
             fitBMFontLabel(m_activeModeValLbl, MODES[m_selectedMode].name, ps(98.f), 0.40f);
         }
-        if (m_chatModeBtnLbl) {
-            fitBMFontLabel(m_chatModeBtnLbl, std::string(MODES[m_selectedMode].name) + " v", ps(122.f), 0.41f);
-        }
+        if (m_chatModeBtnLbl) fitBMFontLabel(m_chatModeBtnLbl, MODES[m_selectedMode].name, ps(180.f), 0.41f);
         this->refreshPage1Detail();
+    }
+
+    void refreshSelectedModeCards() {
+        auto pal = ThemeConfig::getPalette();
+        for (int i = 0; i < 9; ++i) {
+            if (!m_cardNodes[i]) continue;
+            m_cardNodes[i]->removeChildByTag(791);
+            m_cardNodes[i]->removeChildByTag(792);
+            m_cardNodes[i]->removeChildByTag(793);
+            if (auto dn = typeinfo_cast<CCDrawNode*>(m_cardNodes[i]->getChildByTag(790))) {
+                dn->clear();
+                ui::drawRoundedRect(dn, 0.f, 0.f, ps(264.f), ps(214.f), ps(16.f),
+                    rgba4F(i == m_selectedMode ? pal.elevated : pal.card, .98f),
+                    ps(i == m_selectedMode ? 1.8f : 1.f),
+                    rgba4F(i == m_selectedMode ? pal.accent : pal.line, .9f));
+            }
+            auto badge = ui::createModeIconBadge(i, i == m_selectedMode, 50.f, 13.f);
+            badge->setTag(791);
+            badge->ignoreAnchorPointForPosition(false);
+            badge->setAnchorPoint({0.f, 1.f});
+            badge->setPosition({ps(22.f), ps(214.f) - ps(22.f)});
+            m_cardNodes[i]->addChild(badge, 4);
+            if (i == m_selectedMode) {
+                auto check = CCDrawNode::create();
+                check->setTag(792);
+                auto center = ccp(ps(264.f - 34.f), ps(214.f - 46.f));
+                ui::drawCircleShape(check, center, ps(12.f), rgba4F(pal.accent), 0.f, ccc4f(0,0,0,0), 20);
+                m_cardNodes[i]->addChild(check, 4);
+                if (auto spr = ui::createFitSprite("ui-check.png"_spr, ps(13.f), ps(13.f), center)) {
+                    spr->setTag(793);
+                    spr->setColor(pal.inkOnAccent);
+                    m_cardNodes[i]->addChild(spr, 5);
+                }
+            }
+        }
+        this->refreshUsagePanel();
     }
 
     // -----------------------------------------------------------------------
@@ -3751,15 +3816,17 @@ protected:
         m_mainLayer->addChild(m_allyBorderNode, 4);
 
         m_allyRobotNode = ui::createRobotMascotNode(false);
+        if (auto face = typeinfo_cast<CCSprite*>(m_allyRobotNode->getChildByTag(301)))
+            m_allyRobotBaseScale = face->getScale();
         m_allyRobotNode->ignoreAnchorPointForPosition(false);
         m_allyRobotNode->setAnchorPoint({0.5f, 0.5f});
         m_allyRobotNode->setPosition({px(1152.f), py(942.f)});
         m_mainLayer->addChild(m_allyRobotNode, 6);
 
-        m_allyLine1 = ui::createStyledLabel("Cada grupo libre es una oportunidad.", false, 0.40f, pal.text2, ps(304.f));
+        m_allyLine1 = ui::createStyledLabel("Cada grupo libre es una oportunidad.", false, 0.40f, pal.text2, ps(320.f));
         if (m_allyLine1) {
             m_allyLine1->setAnchorPoint({0.f, 0.5f});
-            m_allyLine1->setPosition({px(1192.f), py(942.f)});
+            m_allyLine1->setPosition({px(1180.f), py(942.f)});
             m_mainLayer->addChild(m_allyLine1, 6);
         }
     }
@@ -3780,9 +3847,9 @@ protected:
 
     void refreshUsagePanel() {
         auto pal = ThemeConfig::getPalette();
-        int used = Mod::get()->getSavedValue<int>("used", 3);
+        int used = Mod::get()->getSavedValue<int>("used", 0);
         int limit = std::max(1, Mod::get()->getSavedValue<int>("limit", 20));
-        int total = Mod::get()->getSavedValue<int>("total", 8);
+        int total = Mod::get()->getSavedValue<int>("total", 0);
         EditorContextSnapshot ctx = LevelExecutor::scanEditorContext(m_lel);
 
         if (m_quotaBigNumLbl) fitBMFontLabel(m_quotaBigNumLbl, fmt::format("{}", used), ps(90.f), 0.54f, true);
@@ -3809,19 +3876,14 @@ protected:
 
     void refreshHistoryMiniPanel() {
         auto const& h = HistoryManager::entries();
-        char const* fallbackPrompts[3] = {
-            "Genera un salto de tres pinchos",
-            "Decora esos pinchos con neon",
-            "Crea un salto solo de triggers"
-        };
         for (int r = 0; r < 3; ++r) {
             int k = static_cast<int>(h.size()) - 1 - r;
-            std::string pStr = (k >= 0) ? h[k].summary : fallbackPrompts[r];
-            std::string tStr = (k >= 0) ? HistoryManager::formatRelativeTime(h[k].timestamp) : "Hace 5 h";
+            std::string pStr = (k >= 0) ? h[k].summary : (r == 0 && h.empty() ? "Sin historial todavia" : "");
+            std::string tStr = (k >= 0) ? HistoryManager::formatRelativeTime(h[k].timestamp) : "";
 
-            if (m_histRowText[r]) fitBMFontLabel(m_histRowText[r], pStr, ps(260.f), 0.41f);
+            if (m_histRowText[r]) fitBMFontLabel(m_histRowText[r], pStr, ps(200.f), 0.36f);
             if (m_histRowTime[r]) fitBMFontLabel(m_histRowTime[r], tStr, ps(76.f), 0.37f);
-            if (m_chatHistRowText[r]) fitBMFontLabel(m_chatHistRowText[r], pStr, ps(220.f), 0.41f);
+            if (m_chatHistRowText[r]) fitBMFontLabel(m_chatHistRowText[r], pStr, ps(190.f), 0.36f);
             if (m_chatHistRowTime[r]) fitBMFontLabel(m_chatHistRowTime[r], tStr, ps(76.f), 0.37f);
         }
     }
@@ -3878,6 +3940,10 @@ protected:
 
     void updateChatStatusText(char const* statusTitle, ccColor3B statusCol, std::string const& body) {
         m_lastReplyText = sanitizeForGD(body);
+        if (std::string(statusTitle) != "PROCESANDO" && std::string(statusTitle) != "ENVIANDO") {
+            HistoryManager::addChatMessage(false, m_lastReplyText);
+            this->refreshConversation();
+        }
         if (m_chatStateBadgeLbl) {
             fitBMFontLabel(m_chatStateBadgeLbl, statusTitle, ps(70.f), 0.20f, true);
             m_chatStateBadgeLbl->setColor(statusCol);
@@ -3910,6 +3976,8 @@ protected:
         }
 
         m_lastUserBubbleText = prompt;
+        HistoryManager::addChatMessage(true, prompt);
+        this->refreshConversation();
         if (m_chatUserBubbleLbl) {
             fitBMFontLabel(m_chatUserBubbleLbl, m_lastUserBubbleText, ps(516.f), 0.44f);
         }
@@ -3936,13 +4004,6 @@ protected:
         this->setPromptText("");
         this->showPage(2);
 
-        HistoryManager::addEntry(MODES[modeToUse].id, prompt);
-        this->refreshHistoryMiniPanel();
-
-        m_sessionRequests += 1;
-        int total = Mod::get()->getSavedValue<int>("total", 0) + 1;
-        Mod::get()->setSavedValue<int>("total", total);
-
         this->updateChatStatusText(
             "PROCESANDO",
             COL_STATUS_AMBER,
@@ -3955,11 +4016,21 @@ protected:
             m_lel,
             [this, modeToUse](AIResponseData const& res) {
                 if (!res.ok) {
+                    m_serverReachable = false;
+                    m_serverChecked = true;
+                    this->refreshHeaderStatusPill();
                     this->updateChatStatusText("REVISION", COL_STATUS_RED, res.message);
                     this->refreshUsagePanel();
                     return;
                 }
 
+                HistoryManager::addEntry(MODES[modeToUse].id, m_lastUserBubbleText);
+                this->refreshHistoryMiniPanel();
+                ++m_sessionRequests;
+                Mod::get()->setSavedValue<int>("total", Mod::get()->getSavedValue<int>("total", 0) + 1);
+
+                if (AIClient::getOriginMode() == "server") { m_serverReachable = true; m_serverChecked = true; }
+                this->refreshHeaderStatusPill();
                 if (res.usedToday >= 0 && res.dailyLimit > 0) {
                     Mod::get()->setSavedValue<int>("used", res.usedToday);
                     Mod::get()->setSavedValue<int>("limit", res.dailyLimit);
@@ -3971,8 +4042,9 @@ protected:
                         m_lel, res.rawObjects, MODES[modeToUse].id
                     );
                     if (vr.allowed && vr.validCount > 0) {
+                        m_canUndoAiAction = true;
                         m_sessionPlacedObjects += vr.validCount;
-                        m_lastSummaryPill1 = fmt::format("{} x objetos", vr.validCount);
+                        m_lastSummaryPill1 = fmt::format("{} objetos", vr.validCount);
                         m_lastSummaryPill2 = std::string("Modo ") + MODES[modeToUse].name;
                         if (m_chatPillLbls[0]) fitBMFontLabel(m_chatPillLbls[0], m_lastSummaryPill1, ps(112.f), 0.37f);
                         if (m_chatPillLbls[1]) fitBMFontLabel(m_chatPillLbls[1], m_lastSummaryPill2, ps(118.f), 0.37f);
@@ -3999,6 +4071,15 @@ protected:
             return;
         }
         m_animTime += dt;
+        m_connectionCheckTimer += dt;
+        if (m_connectionCheckTimer >= 15.f && AIClient::getOriginMode() == "server") {
+            m_connectionCheckTimer = 0.f;
+            m_aiClient.checkConnection([this](bool connected) {
+                m_serverChecked = true;
+                m_serverReachable = connected;
+                this->refreshHeaderStatusPill();
+            });
+        }
         float rgbSpeed = ThemeConfig::getRgbSpeed();
         m_wormPhase += dt * 0.42f * rgbSpeed;
 
@@ -4015,13 +4096,17 @@ protected:
         }
 
         if (m_mascotTop) {
-            m_mascotTop->setPositionY(py(64.f) + std::sin(m_animTime * 2.4f) * 1.4f);
+            m_mascotTop->setPositionY(m_mascotTop->getContentSize().height * 0.5f + std::sin(m_animTime * 2.4f) * 1.4f);
+            if (auto face = typeinfo_cast<CCSprite*>(m_mascotTop->getChildByTag(301)))
+                face->setScale(m_headerRobotBaseScale * (1.f + .012f * std::sin(m_animTime * 2.8f)));
         }
         if (m_allyRobotNode) {
             m_allyRobotNode->setPosition({
                 px(1152.f),
                 py(942.f) + std::sin(m_animTime * 3.6f) * 1.4f
             });
+            if (auto face = typeinfo_cast<CCSprite*>(m_allyRobotNode->getChildByTag(301)))
+                face->setScale(m_allyRobotBaseScale * (1.f + .035f * std::sin(m_animTime * 3.6f)));
         }
 
         auto pal = ThemeConfig::getPalette();
