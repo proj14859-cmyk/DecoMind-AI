@@ -1,6 +1,6 @@
 #pragma once
 // ===========================================================================
-// DecoMind AI v0.3.4-alpha - Capa de Validacion de Operaciones y Propiedades GD
+// DecoMind AI v0.3.6-alpha - Capa de Validacion de Operaciones y Propiedades GD
 //
 // El modelo de IA o servidor puede proponer objetos/operaciones, pero el mod
 // valida estrictamente todos los parametros: IDs oficiales de GD 2.2,

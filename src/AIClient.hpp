@@ -1,6 +1,6 @@
 #pragma once
 // ===========================================================================
-// DecoMind AI v0.3.4-alpha - Capa de Comunicacion con el Servidor / Proveedor IA
+// DecoMind AI v0.3.6-alpha - Capa de Comunicacion con el Servidor / Proveedor IA
 //
 // Desacopla la interfaz visual de la red y del proveedor de IA.
 // Construye las peticiones adjuntando internamente:
@@ -45,29 +45,51 @@ public:
         }
     }
 
+    // Dos modos persistentes: "server" (Modo AI) y "local" (Modo local)
     static std::string getOriginMode() {
-        return Mod::get()->getSettingValue<std::string>("mode");
+        std::string saved = Mod::get()->getSavedValue<std::string>("origin_mode", "");
+        if (saved == "local") return "local";
+        if (saved == "server" || saved == "ai") return "server";
+        std::string setting = Mod::get()->getSettingValue<std::string>("mode");
+        if (setting == "local") return "local";
+        return "server";
     }
 
     static void setOriginMode(std::string const& m) {
-        Mod::get()->setSettingValue<std::string>("mode", m);
+        std::string norm = (m == "local") ? "local" : "server";
+        Mod::get()->setSavedValue<std::string>("origin_mode", norm);
+        Mod::get()->setSettingValue<std::string>("mode", norm);
+        (void)Mod::get()->saveData();
     }
 
     static std::string getServerUrl() {
-        return Mod::get()->getSettingValue<std::string>("server-url");
+        std::string saved = trimStr(Mod::get()->getSavedValue<std::string>("server_url", ""));
+        if (!saved.empty()) return saved;
+        std::string setting = trimStr(Mod::get()->getSettingValue<std::string>("server-url"));
+        if (!setting.empty()) return setting;
+        return "http://127.0.0.1:8765/generate";
     }
 
     static void setServerUrl(std::string const& url) {
-        Mod::get()->setSettingValue<std::string>("server-url", url);
+        std::string clean = trimStr(url);
+        if (clean.empty()) {
+            clean = "http://127.0.0.1:8765/generate";
+        }
+        Mod::get()->setSavedValue<std::string>("server_url", clean);
+        Mod::get()->setSettingValue<std::string>("server-url", clean);
+        (void)Mod::get()->saveData();
     }
 
     static int getLocalSections() {
-        return static_cast<int>(Mod::get()->getSettingValue<int64_t>("sections"));
+        int saved = Mod::get()->getSavedValue<int>("local_sections", 8);
+        return std::clamp(saved, 1, 40);
     }
 
     static void setLocalSections(int s) {
-        int64_t clamped = std::max(1, std::min(40, s));
-        Mod::get()->setSettingValue<int64_t>("sections", clamped);
+        int clamped = std::clamp(s, 1, 40);
+        Mod::get()->setSavedValue<int>("local_sections", clamped);
+        Mod::get()->setSettingValue<int64_t>("sections", static_cast<int64_t>(clamped));
+        (void)Mod::get()->saveData();
     }
 
     void sendRequest(
@@ -98,15 +120,11 @@ public:
             return;
         }
 
-        // Modo servidor HTTP (Python / proveedor IA con lectura completa del nivel y seleccion)
+        // Modo AI (Servidor HTTP Python / proveedor IA con lectura completa del nivel y seleccion)
         std::string url = trimStr(getServerUrl());
         if (url.empty()) {
-            AIResponseData res;
-            res.ok = false;
-            res.httpCode = 0;
-            res.message = "Configuracion pendiente: la URL del servidor esta vacia. Ve a Ajustes para configurarla.";
-            if (onComplete) onComplete(res);
-            return;
+            url = "http://127.0.0.1:8765/generate";
+            setServerUrl(url);
         }
 
         auto req = web::WebRequest();
@@ -160,16 +178,15 @@ public:
     }
 
     // Sube el catalogo de objetos del juego al servidor (POST <servidor>/catalog).
-    // Solo tiene sentido en modo "server". El callback recibe (ok, mensaje).
+    // Solo tiene sentido en Modo AI ("server"). El callback recibe (ok, mensaje).
     void uploadCatalog(std::function<void(bool, std::string const&)> onDone) {
         if (getOriginMode() != "server") {
-            if (onDone) onDone(false, "El catalogo se sube al servidor: cambia el Origen a 'server' en Ajustes.");
+            if (onDone) onDone(false, "El catalogo se sube al servidor: cambia el modo a 'Modo AI' en Ajustes.");
             return;
         }
         std::string url = trimStr(getServerUrl());
         if (url.empty()) {
-            if (onDone) onDone(false, "La URL del servidor esta vacia (Ajustes).");
-            return;
+            url = "http://127.0.0.1:8765/generate";
         }
         // http://IP:8765/generate  ->  http://IP:8765/catalog
         size_t g = url.rfind("/generate");

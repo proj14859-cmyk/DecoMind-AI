@@ -1,172 +1,213 @@
 #pragma once
 // ===========================================================================
-// DecoMind AI v0.3.4-alpha - Capa de Gestion de Modos y Estado
+// DecoMind AI v0.3.6-alpha - Capa de Gestion de Modos y Estado
 //
-// Cada modo mantiene estrictamente separados tres elementos:
-//   1. id             : Identificador interno ("estructurar", "layout", etc.)
-//   2. visibleDesc    : Descripcion breve visible para el usuario en la UI
-//   3. internalPrompt : Instrucciones internas (preprompt) para el modelo IA,
-//                       que NUNCA se muestran en la interfaz visual.
+// Define los 9 modos de construccion y decoracion con sus categorias,
+// desplazamientos cromaticos vecinos (±28 grados de matiz segun el PDF),
+// etiquetas de capacidades ("PUEDE USAR" con check y equis) y preprompts.
 // ===========================================================================
 #include <Geode/Geode.hpp>
+#include <algorithm>
+#include <cctype>
 #include <string>
-#include <vector>
 
 using namespace geode::prelude;
 
 namespace decomind {
 
-struct ModeInfo {
-    const char* id;             // 1. Identificador interno
-    const char* title;          // Titulo visible en mayusculas (tarjeta)
-    const char* name;           // Nombre legible corto (panel lateral / estado)
-    const char* tag;            // Abreviatura de respaldo
-    const char* spriteName;     // Nombre del recurso sprite (_spr)
-    const char* visibleLine1;   // 2a. Linea 1 de descripcion visible en tarjeta
-    const char* visibleLine2;   // 2b. Linea 2 de descripcion visible en tarjeta
-    const char* userGuide;      // Explicacion ampliada para el usuario en pestana MODOS (no es preprompt)
-    const char* examplePrompt;  // Ejemplo de peticion sugerida para este modo
-    const char* internalPrompt; // 3. Preprompt interno para el modelo de IA (jamas visible en UI)
-    ccColor3B bgColor;          // Color de fondo de la tarjeta (fiel a la referencia)
-    ccColor3B borderColor;      // Color de borde e icono neon (fiel a la referencia)
+enum class ModeIconType {
+    Estructurar = 0,
+    Layout,
+    Deco,
+    LayoutDeco,
+    BlockDesign,
+    Triggers,
+    Transiciones,
+    Efectos,
+    Ideas
 };
 
-// Los 9 modos oficiales de DecoMind AI con colores exactos de la referencia
-static const ModeInfo MODES[9] = {
-    // 0: ESTRUCTURAR
+struct ModeDefinition {
+    char const* id;
+    char const* title;          // Titulo en mayusculas en las tarjetas
+    char const* name;           // Nombre corto
+    char const* categoryTag;    // Etiqueta derecha en la pestana Informacion (Orden, Jugable, Visual, etc.)
+    char const* visibleLine1;   // Linea 1 de descripcion corta en la tarjeta
+    char const* visibleLine2;   // Linea 2 de descripcion corta en la tarjeta
+    char const* userGuide;      // Explicacion en la pestana Informacion / Modos
+    char const* canUse[3];      // 3 pildoras con check (✓) en "PUEDE USAR"
+    char const* cannotUse[2];   // 2 pildoras con equis (✕) en "PUEDE USAR"
+    char const* examplePrompt;  // Ejemplo de prueba interactivo
+    char const* internalPrompt; // Preprompt tecnico enviado al servidor / proveedor IA
+    char const* spriteName;     // Icono PNG blanco recoloreable en resources/
+    float hueOffsetDeg;         // Desplazamiento de matiz vecino (-28..+28 grados)
+    ccColor3B borderColor;      // Color de respaldo
+    ccColor3B bgColor;          // Color de fondo de respaldo
+    ModeIconType iconType;
+};
+
+static const ModeDefinition MODES[9] = {
     {
         "estructurar",
         "ESTRUCTURAR",
         "Estructurar",
-        "ES",
+        "Orden",
+        "Organiza y estructura tu nivel de",
+        "forma inteligente.",
+        "Ordena tus bloques en grupos limpios, asigna canales de color libres y prepara la base logica del nivel respetando las estructuras seleccionadas.",
+        {"Objetos decorativos", "Grupos y capas libres", "Triggers de organizacion"},
+        {"Picos con colision", "Portales y velocidades"},
+        "Estructura estos bloques en 3 grupos y prepara bordes neon",
+        "Eres el modulo ESTRUCTURAR de Geometry Dash. Organiza las estructuras seleccionadas en grupos libres, asigna capas Z coherentes y anade contornos o triggers de organizacion sin alterar la jugabilidad.",
         "mode-estructurar.png"_spr,
-        "Organiza y estructura",
-        "tu nivel de forma inteligente.",
-        "Lee las estructuras seleccionadas o visibles y organiza grupos libres, canales de color y capas (Z-Layer / Z-Order) sin alterar la jugabilidad.",
-        "Estructura esta seleccion asignando grupos libres para bordes, relleno y fondo con colores 10 a 14",
-        "MODO ESTRUCTURAR. Objetivo: leer la seleccion o vista activa del nivel (SELECTION / VIEWPORT) y estructurar u organizar sus piezas con Group IDs libres (FREE_GROUPS), Color IDs libres (FREE_COLORS) y capas Z (Z-Layer / Z-Order) sin alterar las colisiones. Si el usuario pide reforzar o completar la estructura seleccionada con bordes, esquinas o triggers de organizacion, usa las coordenadas exactas de SELECTION.",
-        ccc3(0x01, 0x2e, 0x3c),
-        ccc3(0x01, 0xd3, 0xae)
+        -28.f,
+        ccc3(0x9b, 0x5c, 0xf6),
+        ccc3(0x18, 0x10, 0x28),
+        ModeIconType::Estructurar
     },
-    // 1: LAYOUT
     {
         "layout",
         "LAYOUT",
         "Layout",
-        "LY",
+        "Jugable",
+        "Crea la estructura y la jugabilidad",
+        "del nivel.",
+        "Construye plataformas, saltos calibrados, picos, orbes, pads y cambios de modo con ritmo jugable y distancias superables.",
+        {"Bloques y plataformas", "Picos y obstaculos", "Portales, orbes y pads"},
+        {"Sobrecarga decorativa", "Efectos distractores"},
+        "Genera una estructura pequena con un salto de tres pinchos",
+        "Eres un creador experto de layouts en Geometry Dash. Genera gameplay divertido, leible y balanceado usando bloques base, picos, pads, orbes y portales con alturas y distancias fisicamente superables.",
         "mode-layout.png"_spr,
-        "Crea la estructura y",
-        "la jugabilidad del nivel.",
-        "Construye secciones jugables con saltos, portales, pads y orbes equilibrados y sincronizados.",
-        "Crea un layout de cubo y nave de 20 segundos con ritmo medio continuando desde la camara",
-        "MODO LAYOUT. Objetivo: crear SOLO la jugabilidad (bloques, picos, portales, pads, orbes) con ritmo coherente para el modo de juego pedido. Si hay objetos en SELECTION o VIEWPORT, continua desde su posicion o respeta su altura. Todo salto debe ser superable y deja siempre espacio libre para pasar. Sin decoracion.",
-        ccc3(0x03, 0x1d, 0x64),
-        ccc3(0x02, 0xa5, 0xfc)
+        -21.f,
+        ccc3(0x88, 0x64, 0xf8),
+        ccc3(0x16, 0x11, 0x29),
+        ModeIconType::Layout
     },
-    // 2: DECO
     {
         "deco",
         "DECO",
         "Deco",
-        "DC",
+        "Visual",
+        "Anade y mejora la decoracion del",
+        "nivel.",
+        "Decora tus estructuras existentes con detalles visuales, atmosfera y contraste, respetando las colisiones. Nunca cambia la jugabilidad.",
+        {"Objetos decorativos", "Triggers de color y animacion", "Respeta colisiones"},
+        {"Picos y bloques", "Portales, orbes y velocidades"},
+        "Mejora la deco de esta parte con estilo neon azul y detalles brillantes",
+        "Eres un decorador profesional de Geometry Dash. Anade detalles visuales, glow, conectores y triggers de color/animacion sobre los bloques existentes respetando las hitboxes.",
         "mode-deco.png"_spr,
-        "Anade y mejora la",
-        "decoracion del nivel.",
-        "Lee las estructuras seleccionadas o el nivel visible y genera decoracion a medida respetando grupos y colores libres o indicados.",
-        "Genera una deco estilo neon para esta estructura seleccionada usando colores del 10 al 14, grupo de objetos 20 al 25 y animacion de entrada y salida",
-        "MODO DECO. Objetivo: decorar con estilo y atmosfera la estructura seleccionada (SELECTION) o la zona visible (VIEWPORT) SIN alterar la jugabilidad. Si hay objetos seleccionados, coloca bordes, esquinas, relleno interior, glow y detalles alrededor de su caja delimitadora (bbox). Si el usuario pide rangos de Group ID o Color ID, usa exactamente esos; si no, asigna IDs de FREE_GROUPS y FREE_COLORS sin pisar USED_GROUPS ni USED_COLORS. Si pide animacion de entrada o salida, anade triggers (Move 901, Alpha 1007, Pulse 1006, Color 899, Rotate 1346) apuntando al grupo de la decoracion.",
-        ccc3(0x28, 0x0c, 0x66),
-        ccc3(0xb6, 0x48, 0xf6)
+        -14.f,
+        ccc3(0xa8, 0x55, 0xf7),
+        ccc3(0x1a, 0x10, 0x2a),
+        ModeIconType::Deco
     },
-    // 3: LAYOUT + DECO
     {
         "layout_deco",
         "LAYOUT + DECO",
         "Layout + Deco",
-        "L+D",
+        "Mixto",
+        "Crea la jugabilidad y la decoracion",
+        "al mismo tiempo.",
+        "Construye primero el layout jugable y aplica encima una capa completa de decoracion, bordes, relleno e iluminacion en una sola orden.",
+        {"Layout jugable completo", "Decoracion y detalles", "Triggers y canales de color"},
+        {"Objetos sin sincronizar", "Colisiones ocultas"},
+        "Crea una seccion de cubo y nave decorada al estilo futurista neon",
+        "Actua en dos fases combinadas para Geometry Dash: primero construye un layout jugable solido y enseguida envuelvelo con decoracion estructurada, bordes definidos y triggers de iluminacion.",
         "mode-layout-deco.png"_spr,
-        "Crea la jugabilidad y",
-        "decoracion al mismo tiempo.",
-        "Genera una seccion completa combinando estructura jugable verificada, decoracion tematica y grupos/colores libres.",
-        "Crea una seccion de 15 segundos con layout dinamico, decoracion espacial y animacion de entrada",
-        "MODO LAYOUT + DECO. Objetivo: una seccion completa en dos pasadas: 1) jugabilidad superable como en LAYOUT; 2) decoracion como en DECO sobre las estructuras creadas usando FREE_GROUPS y FREE_COLORS (o los rangos pedidos por el usuario) sin tapar picos ni la ruta de salto. Informa de cada pasada por separado.",
-        ccc3(0x30, 0x20, 0x0e),
-        ccc3(0xfb, 0xcf, 0x50)
+        -7.f,
+        ccc3(0xb4, 0x58, 0xf6),
+        ccc3(0x1b, 0x10, 0x29),
+        ModeIconType::LayoutDeco
     },
-    // 4: BLOCK DESIGN
     {
         "block_design",
         "BLOCK DESIGN",
         "Block Design",
-        "BL",
+        "Bloques",
+        "Disena bloques y estructuras",
+        "personalizadas.",
+        "Rellena tus estructuras con patrones internos, conectores, biseles, sombras y acentos luminosos adaptados al tamano de cada pilar.",
+        {"Rellenos y patrones", "Bordes y biseles", "Brillo y acentos de color"},
+        {"Portales y velocidades", "Trampas fuera del bloque"},
+        "Disena un block design tecnologico con nucleo brillante para esta estructura",
+        "Especialista en Block Design de Geometry Dash. Construye el interior y contorno de estructuras y pilares combinando patrones geometricos, bordes limpios, sombras internas y acentos de luz.",
         "mode-block-design.png"_spr,
-        "Disena bloques y",
-        "estructuras personalizadas.",
-        "Disena patrones internos, bordes, esquinas y rellenos modulares sobre tu estructura seleccionada o en una pieza nueva.",
-        "Disena un block design tecnologico para esta estructura seleccionada usando colores 12 a 15 y grupo 30",
-        "MODO BLOCK DESIGN. Objetivo: disenar bloques y estructuras personalizadas (bordes, esquinas, relleno geometrico, glow y detalles). Si el usuario tiene una estructura seleccionada (SELECTION), aplica el Block Design exactamente sobre las coordenadas y bordes de esa estructura; si no hay seleccion, crea una estructura modular en la vista actual. Respeta los Group IDs y Color IDs pedidos o usa FREE_GROUPS y FREE_COLORS.",
-        ccc3(0x3f, 0x11, 0x32),
-        ccc3(0xf7, 0x54, 0x75)
+        0.f,
+        ccc3(0x9b, 0x5c, 0xf6),
+        ccc3(0x18, 0x10, 0x28),
+        ModeIconType::BlockDesign
     },
-    // 5: TRIGGERS
     {
         "triggers",
         "TRIGGERS",
         "Triggers",
-        "TG",
+        "Logica",
+        "Configura y usa triggers de forma",
+        "automatica.",
+        "Calcula y coloca triggers Move, Pulse, Color, Alpha, Rotate, Spawn y Toggle asignando automaticamente los siguientes grupos y canales libres.",
+        {"Move, Pulse, Color y Alpha", "Rotate, Scale y Toggle", "Grupos libres automaticos"},
+        {"Bloques solidos", "Picos y obstaculos"},
+        "Haz que la estructura seleccionada baje suavemente con easing y parpadee",
+        "Ingeniero de Triggers de Geometry Dash 2.2. Configura secuencias precisas de triggers Move, Pulse, Color, Alpha, Rotate, Scale, Spawn y Toggle con tiempos exactos y curvas de easing naturales.",
         "mode-triggers.png"_spr,
-        "Configura y usa triggers",
-        "de forma automatica.",
-        "Automatiza triggers de Move, Pulse, Color, Alpha, Rotate, Scale, Toggle y Spawn leyendo los grupos y colores libres del nivel.",
-        "Anade una animacion de entrada con Move y Alpha y un pulso de color para el grupo 20 usando canales libres",
-        "MODO TRIGGERS. Objetivo: configurar triggers oficiales de GD 2.2 (Color 899, Move 901, Pulse 1006, Alpha 1007, Toggle 1049, Spawn 1268, Rotate 1346, Follow 1347, Stop 1616, Scale 2067) para animar las estructuras seleccionadas o los grupos indicados. Revisa USED_GROUPS, FREE_GROUPS, USED_COLORS y FREE_COLORS para no colisionar con grupos ni colores ocupados, y explica que IDs y tiempos usaste.",
-        ccc3(0x01, 0x34, 0x57),
-        ccc3(0x00, 0xe3, 0xf7)
+        +7.f,
+        ccc3(0xc0, 0x56, 0xf4),
+        ccc3(0x1c, 0x0f, 0x28),
+        ModeIconType::Triggers
     },
-    // 6: TRANSICIONES
     {
         "transiciones",
         "TRANSICIONES",
         "Transiciones",
-        "TR",
+        "Visual",
+        "Crea transiciones suaves y",
+        "creativas.",
+        "Conecta dos zonas del nivel o cambios de portal con cortinas de luz, destellos sincronizados, cambios de paleta y entradas fluidas.",
+        {"Cortinas y barridos de luz", "Triggers de cambio de color", "Detalles de entrada y salida"},
+        {"Muros injustos", "Cambios ciegos con picos"},
+        "Haz una transicion suave de color y luz entre estas dos zonas",
+        "Especialista en Transiciones de Geometry Dash. Conecta dos partes del nivel o cambios de modo con efectos de cortina, destellos sincronizados, camara suave y tiempo de reaccion justo.",
         "mode-transiciones.png"_spr,
-        "Crea transiciones suaves",
-        "y creativas.",
-        "Conecta dos zonas o cambios de portal con efectos visuales fluidos y triggers sincronizados en grupos y colores libres.",
-        "Haz una transicion entre 2 zonas pasando de tono oscuro a cian brillante con entrada y salida suave",
-        "MODO TRANSICIONES. Objetivo: transicion suave entre dos zonas o estilos (color, fondo, cortina de luz, alpha, move) con triggers y objetos decorativos sin alterar la jugabilidad. Usa los grupos y canales de color pedidos por el usuario o toma IDs de FREE_GROUPS y FREE_COLORS.",
-        ccc3(0x19, 0x0e, 0x5b),
-        ccc3(0xa9, 0x4e, 0xf8)
+        +14.f,
+        ccc3(0xd2, 0x54, 0xee),
+        ccc3(0x1d, 0x0f, 0x27),
+        ModeIconType::Transiciones
     },
-    // 7: EFECTOS AVANZADOS
     {
         "efectos",
         "EFECTOS AVANZADOS",
-        "Efectos Avanzados",
-        "FX",
-        "mode-efectos.png"_spr,
+        "Efectos",
+        "Visual",
         "Anade efectos especiales,",
         "movimiento y mas.",
-        "Incorpora animaciones de entrada/salida, parallax, pulsos sincronizados y rotacion sobre tu seleccion o vista actual.",
-        "Anade un efecto de entrada y salida suave con destellos y rotacion a la estructura seleccionada",
-        "MODO EFECTOS AVANZADOS. Objetivo: efectos visuales (animaciones de entrada/salida con Move/Alpha/Scale, pulsos al ritmo, rotacion, parallax) sobre la estructura seleccionada (SELECTION) o la vista activa (VIEWPORT), usando Group IDs y Color IDs libres o los rangos indicados por el usuario.",
-        ccc3(0x3b, 0x1b, 0x17),
-        ccc3(0xfa, 0x92, 0x37)
+        "Crea fondos con parallax multicapa, ondas de pulso ritmico, particulas orbitales y secuencias visuales avanzadas.",
+        {"Parallax y profundidad", "Ondas de pulso y brillo", "Triggers encadenados"},
+        {"Colisiones fisicas", "Obstaculos letales"},
+        "Anade un efecto de pulso neon y movimiento flotante al fondo",
+        "Creador de Efectos Visuales Avanzados en Geometry Dash. Disena parallax multicapa, ondas de pulso sincronizadas, distorsiones rítmicas y fondos animados optimizados en objetos.",
+        "mode-efectos.png"_spr,
+        +21.f,
+        ccc3(0xe0, 0x54, 0xe4),
+        ccc3(0x1e, 0x0f, 0x25),
+        ModeIconType::Efectos
     },
-    // 8: IDEAS Y SUGERENCIAS
     {
         "ideas",
         "IDEAS Y SUGERENCIAS",
-        "Ideas y Sugerencias",
-        "ID",
+        "Ideas",
+        "Consejos",
+        "Obten ideas, mejoras y consejos",
+        "para tu nivel.",
+        "Analiza la composicion actual de tu nivel y te devuelve sugerencias concretas de paleta, ritmo, decoracion y estructura sin modificar tus objetos.",
+        {"Analisis del nivel actual", "Sugerencias de paleta y estilo", "Ideas de estructura y ritmo"},
+        {"No modifica tus objetos", "No altera grupos ni colores"},
+        "Dame 3 ideas para mejorar la decoracion y el ambiente de esta parte",
+        "Director Creativo y Asesor de Niveles para Geometry Dash. Analiza la idea del usuario y responde con sugerencias creativas concretas, paletas de colores y consejos de estructuracion (sin colocar objetos).",
         "mode-ideas.png"_spr,
-        "Obten ideas, mejoras",
-        "y consejos para tu nivel.",
-        "Analiza los objetos seleccionados, grupos ocupados y colores de tu nivel actual y ofrece recomendaciones concretas.",
-        "Analiza lo que tengo seleccionado y dime como mejorar su deco, colores y animaciones",
-        "MODO IDEAS. No modificas el nivel. Analiza el contexto real enviado del nivel (SELECTION, VIEWPORT, USED_GROUPS, FREE_GROUPS, USED_COLORS, FREE_COLORS) y da de 3 a 5 ideas concretas y accionables (deco, block design, paleta de colores y triggers con IDs libres especificos) ordenadas de mayor a menor impacto.",
-        ccc3(0x01, 0x14, 0x51),
-        ccc3(0x00, 0x9b, 0xf7)
+        +28.f,
+        ccc3(0xec, 0x56, 0xd4),
+        ccc3(0x1f, 0x0f, 0x23),
+        ModeIconType::Ideas
     }
 };
 
@@ -177,133 +218,91 @@ inline int modeIndexById(std::string const& id) {
     return -1;
 }
 
-// Normaliza texto de entrada del usuario en el cuadro de CHAT / COMANDO:
-// - Convierte 'ñ' (UTF-8 0xC3 0xB1 o Latin-1 0xF1) en el marcador de 1 byte '~'
-//   y 'Ñ' (UTF-8 0xC3 0x91 o Latin-1 0xD1) en '^', de modo que CCTextFieldTTF
-//   mantenga 1 byte = 1 caracter y la vista previa dibuje la virgulilla (~) sobre la n/N.
-// - Convierte vocales acentuadas (UTF-8 y Latin-1) a su vocal base ASCII.
-inline std::string normalizePromptInputWithEnye(std::string const& input) {
-    std::string out;
-    out.reserve(input.size());
-    for (size_t i = 0; i < input.size(); ++i) {
-        unsigned char c = static_cast<unsigned char>(input[i]);
-        if (c == 0xC3 && i + 1 < input.size()) {
-            unsigned char n = static_cast<unsigned char>(input[i + 1]);
-            switch (n) {
-                case 0xA1: case 0xA0: case 0xA2: case 0xA4: out += 'a'; ++i; continue;
-                case 0xA9: case 0xA8: case 0xAA: case 0xAB: out += 'e'; ++i; continue;
-                case 0xAD: case 0xAC: case 0xAE: case 0xAF: out += 'i'; ++i; continue;
-                case 0xB3: case 0xB2: case 0xB4: case 0xB6: out += 'o'; ++i; continue;
-                case 0xBA: case 0xB9: case 0xBB: case 0xBC: out += 'u'; ++i; continue;
-                case 0xB1: out += '~'; ++i; continue; // ñ -> marcador '~'
-                case 0x81: case 0x80: case 0x82: case 0x84: out += 'A'; ++i; continue;
-                case 0x89: case 0x88: case 0x8A: case 0x8B: out += 'E'; ++i; continue;
-                case 0x8D: case 0x8C: case 0x8E: case 0x8F: out += 'I'; ++i; continue;
-                case 0x93: case 0x92: case 0x94: case 0x96: out += 'O'; ++i; continue;
-                case 0x9A: case 0x99: case 0x9B: case 0x9C: out += 'U'; ++i; continue;
-                case 0x91: out += '^'; ++i; continue; // Ñ -> marcador '^'
-                default: break;
-            }
-        } else if (c == 0xC2 && i + 1 < input.size()) {
-            unsigned char n = static_cast<unsigned char>(input[i + 1]);
-            if (n == 0xA1) { out += '!'; ++i; continue; }
-            if (n == 0xBF) { out += '?'; ++i; continue; }
-        }
-        // Soporte para codificacion de 1 byte Latin-1 / Windows-1252 (teclados en espanol en PC)
-        switch (c) {
-            case 0xF1: out += '~'; continue; // ñ
-            case 0xD1: out += '^'; continue; // Ñ
-            case 0xE1: case 0xE0: case 0xE2: case 0xE4: out += 'a'; continue;
-            case 0xE9: case 0xE8: case 0xEA: case 0xEB: out += 'e'; continue;
-            case 0xED: case 0xEC: case 0xEE: case 0xEF: out += 'i'; continue;
-            case 0xF3: case 0xF2: case 0xF4: case 0xF6: out += 'o'; continue;
-            case 0xFA: case 0xF9: case 0xFB: case 0xFC: out += 'u'; continue;
-            case 0xC1: case 0xC0: case 0xC2: case 0xC4: out += 'A'; continue;
-            case 0xC9: case 0xC8: case 0xCA: case 0xCB: out += 'E'; continue;
-            case 0xCD: case 0xCC: case 0xCE: case 0xCF: out += 'I'; continue;
-            case 0xD3: case 0xD2: case 0xD4: case 0xD6: out += 'O'; continue;
-            case 0xDA: case 0xD9: case 0xDB: case 0xDC: out += 'U'; continue;
-            case 0xA1: out += '!'; continue;
-            case 0xBF: out += '?'; continue;
-            default: break;
-        }
-        if (c == '\n' || c == '\r' || c == '\t') {
-            out += ' ';
-        } else if (c >= 32 && c < 127) {
-            out += static_cast<char>(c);
-        }
-    }
-    return out;
-}
-
-// Convierte cadenas UTF-8, Latin-1 o con marcadores internos ('~'/'^') a ASCII limpio
-// compatible con las fuentes bitmap de Geometry Dash (bigFont.fnt / chatFont.fnt),
-// evitando que se omitan letras acentuadas o la letra ñ.
-inline std::string sanitizeForGD(std::string const& input) {
-    std::string out;
-    out.reserve(input.size());
-    for (size_t i = 0; i < input.size(); ++i) {
-        unsigned char c = static_cast<unsigned char>(input[i]);
-        if (c == 0xC3 && i + 1 < input.size()) {
-            unsigned char n = static_cast<unsigned char>(input[i + 1]);
-            switch (n) {
-                case 0xA1: case 0xA0: case 0xA2: case 0xA4: out += 'a'; ++i; continue;
-                case 0xA9: case 0xA8: case 0xAA: case 0xAB: out += 'e'; ++i; continue;
-                case 0xAD: case 0xAC: case 0xAE: case 0xAF: out += 'i'; ++i; continue;
-                case 0xB3: case 0xB2: case 0xB4: case 0xB6: out += 'o'; ++i; continue;
-                case 0xBA: case 0xB9: case 0xBB: case 0xBC: out += 'u'; ++i; continue;
-                case 0xB1: out += 'n'; ++i; continue;
-                case 0x81: case 0x80: case 0x82: case 0x84: out += 'A'; ++i; continue;
-                case 0x89: case 0x88: case 0x8A: case 0x8B: out += 'E'; ++i; continue;
-                case 0x8D: case 0x8C: case 0x8E: case 0x8F: out += 'I'; ++i; continue;
-                case 0x93: case 0x92: case 0x94: case 0x96: out += 'O'; ++i; continue;
-                case 0x9A: case 0x99: case 0x9B: case 0x9C: out += 'U'; ++i; continue;
-                case 0x91: out += 'N'; ++i; continue;
-                default: break;
-            }
-        } else if (c == 0xC2 && i + 1 < input.size()) {
-            unsigned char n = static_cast<unsigned char>(input[i + 1]);
-            if (n == 0xA1) { out += '!'; ++i; continue; }
-            if (n == 0xBF) { out += '?'; ++i; continue; }
-        }
-        switch (c) {
-            case 0xF1: case '~': out += 'n'; continue;
-            case 0xD1: case '^': out += 'N'; continue;
-            case 0xE1: case 0xE0: case 0xE2: case 0xE4: out += 'a'; continue;
-            case 0xE9: case 0xE8: case 0xEA: case 0xEB: out += 'e'; continue;
-            case 0xED: case 0xEC: case 0xEE: case 0xEF: out += 'i'; continue;
-            case 0xF3: case 0xF2: case 0xF4: case 0xF6: out += 'o'; continue;
-            case 0xFA: case 0xF9: case 0xFB: case 0xFC: out += 'u'; continue;
-            case 0xC1: case 0xC0: case 0xC2: case 0xC4: out += 'A'; continue;
-            case 0xC9: case 0xC8: case 0xCA: case 0xCB: out += 'E'; continue;
-            case 0xCD: case 0xCC: case 0xCE: case 0xCF: out += 'I'; continue;
-            case 0xD3: case 0xD2: case 0xD4: case 0xD6: out += 'O'; continue;
-            case 0xDA: case 0xD9: case 0xDB: case 0xDC: out += 'U'; continue;
-            case 0xA1: out += '!'; continue;
-            case 0xBF: out += '?'; continue;
-            default: break;
-        }
-        if (c >= 32 && c < 127) {
-            out += static_cast<char>(c);
-        } else if (c == '\n' || c == '\t') {
-            out += static_cast<char>(c);
-        }
-    }
-    return out;
-}
-
 inline std::string trimStr(std::string s) {
-    size_t a = s.find_first_not_of(" \t\r\n");
-    if (a == std::string::npos) return "";
-    size_t b = s.find_last_not_of(" \t\r\n");
-    return s.substr(a, b - a + 1);
+    auto notSpace = [](unsigned char ch) { return !std::isspace(ch); };
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), notSpace));
+    s.erase(std::find_if(s.rbegin(), s.rend(), notSpace).base(), s.end());
+    return s;
 }
 
 inline std::string oneLineStr(std::string s) {
-    for (auto& c : s) {
-        if (c == '\n' || c == '\r' || c == '\t') c = ' ';
+    for (char& c : s) {
+        if (c == '\r' || c == '\n' || c == '\t') c = ' ';
     }
-    return s;
+    return trimStr(s);
+}
+
+// Normaliza texto conservando un marcador ASCII para ñ ('~') y Ñ ('^')
+inline std::string normalizePromptInputWithEnye(std::string const& s) {
+    std::string out;
+    out.reserve(s.size());
+    for (size_t i = 0; i < s.size(); ++i) {
+        unsigned char c = static_cast<unsigned char>(s[i]);
+        if (c == 0xC3 && i + 1 < s.size()) {
+            unsigned char n = static_cast<unsigned char>(s[i + 1]);
+            ++i;
+            switch (n) {
+                case 0xA1: case 0xA0: case 0xA4: case 0xA2: out.push_back('a'); break;
+                case 0xA9: case 0xA8: case 0xAB: case 0xAA: out.push_back('e'); break;
+                case 0xAD: case 0xAC: case 0xAF: case 0xAE: out.push_back('i'); break;
+                case 0xB3: case 0xB2: case 0xB6: case 0xB4: out.push_back('o'); break;
+                case 0xBA: case 0xB9: case 0xBC: case 0xBB: out.push_back('u'); break;
+                case 0xB1: out.push_back('~'); break; // ñ
+                case 0x81: case 0x80: case 0x84: case 0x82: out.push_back('A'); break;
+                case 0x89: case 0x88: case 0x8B: case 0x8A: out.push_back('E'); break;
+                case 0x8D: case 0x8C: case 0x8F: case 0x8E: out.push_back('I'); break;
+                case 0x93: case 0x92: case 0x96: case 0x94: out.push_back('O'); break;
+                case 0x9A: case 0x99: case 0x9C: case 0x9B: out.push_back('U'); break;
+                case 0x91: out.push_back('^'); break; // Ñ
+                default: break;
+            }
+        } else if (c == 0xC2 && i + 1 < s.size()) {
+            unsigned char n = static_cast<unsigned char>(s[i + 1]);
+            ++i;
+            if (n == 0xA1) out.push_back('!');
+            else if (n == 0xBF) out.push_back('?');
+            else if (n == 0xB7) out.push_back('.');
+        } else if (c == 0xE2 && i + 2 < s.size()) {
+            unsigned char n1 = static_cast<unsigned char>(s[i + 1]);
+            unsigned char n2 = static_cast<unsigned char>(s[i + 2]);
+            i += 2;
+            if (n1 == 0x80 && (n2 == 0x93 || n2 == 0x94)) out.push_back('-');
+            else if (n1 == 0x80 && (n2 == 0x9C || n2 == 0x9D)) out.push_back('"');
+            else if (n1 == 0x80 && (n2 == 0x98 || n2 == 0x99)) out.push_back('\'');
+            else if (n1 == 0x80 && n2 == 0xA2) out.push_back('*');
+            else if (n1 == 0x80 && n2 == 0xA6) { out += "..."; }
+        } else if (c >= 0xA0) {
+            switch (c) {
+                case 0xF1: out.push_back('~'); break;
+                case 0xD1: out.push_back('^'); break;
+                case 0xE1: case 0xE0: case 0xE4: case 0xE2: out.push_back('a'); break;
+                case 0xE9: case 0xE8: case 0xEB: case 0xEA: out.push_back('e'); break;
+                case 0xED: case 0xEC: case 0xEF: case 0xEE: out.push_back('i'); break;
+                case 0xF3: case 0xF2: case 0xF6: case 0xF4: out.push_back('o'); break;
+                case 0xFA: case 0xF9: case 0xFC: case 0xFB: out.push_back('u'); break;
+                case 0xC1: case 0xC0: case 0xC4: case 0xC2: out.push_back('A'); break;
+                case 0xC9: case 0xC8: case 0xCB: case 0xCA: out.push_back('E'); break;
+                case 0xCD: case 0xCC: case 0xCF: case 0xCE: out.push_back('I'); break;
+                case 0xD3: case 0xD2: case 0xD6: case 0xD4: out.push_back('O'); break;
+                case 0xDA: case 0xD9: case 0xDC: case 0xDB: out.push_back('U'); break;
+                case 0xA1: out.push_back('!'); break;
+                case 0xBF: out.push_back('?'); break;
+                default: break;
+            }
+        } else if (c >= 32 && c < 127) {
+            out.push_back(static_cast<char>(c));
+        }
+    }
+    return out;
+}
+
+inline std::string sanitizeForGD(std::string const& s) {
+    std::string out = normalizePromptInputWithEnye(s);
+    for (size_t i = 0; i < out.size(); ++i) {
+        if (out[i] == '~') out[i] = 'n';
+        else if (out[i] == '^') out[i] = 'N';
+    }
+    return out;
 }
 
 } // namespace decomind

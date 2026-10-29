@@ -1,9 +1,9 @@
 #pragma once
 // ===========================================================================
-// DecoMind AI v0.3.4-alpha - Percepcion del Nivel, Seleccion, Grupos y Colores
+// DecoMind AI v0.3.6-alpha - Percepcion del Nivel, Seleccion, Grupos y Colores
 // + Ejecucion de Acciones y Generador Contextual Local
 //
-// Capacidades v0.3.4-alpha:
+// Capacidades v0.3.6-alpha:
 //   1. Escaneo real de objetos seleccionados (EditorUI::get()->getSelectedObjects())
 //      con caja delimitadora (minX, maxX, minY, maxY), deteccion de bordes/esquinas/
 //      relleno e inspeccion individual de propiedades (ID, X, Y, rot, scale,
@@ -637,7 +637,7 @@ public:
             }
 
             outSummary = fmt::format(
-                "[Contextual v0.3.4-alpha] Estructura {}x{} en X=[{}..{}], Y=[{}..{}] decorada en estilo '{}'. "
+                "[Contextual v0.3.6-alpha] Estructura {}x{} en X=[{}..{}], Y=[{}..{}] decorada en estilo '{}'. "
                 "Grupos usados: {}..{} (ocupados previos: {}). Colores usados: {}..{} (ocupados previos: {}).{}",
                 (maxX - minX) / 30 + 1, (maxY - minY) / 30 + 1, minX, maxX, minY, maxY, dir.styleTag,
                 gMain, gGlow, ctx.usedGroupsCompact,

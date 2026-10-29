@@ -1,19 +1,12 @@
 #pragma once
 // ===========================================================================
-// DecoMind AI v0.3.4-alpha - Selector de Color Oficial de Geometry Dash
+// DecoMind AI v0.3.6-alpha - Selector de Color Oficial de Geometry Dash
 //
-// Reemplazo directo de GDColorPickerPopup (misma firma de create()) basado en
-// la ingenieria inversa de libcocos2dcpp.so (ARM64):
-//   - Usa cocos2d::extension::CCControlColourPicker::colourPicker() (0xa9cf2c),
-//     que carga CCControlColourPickerSpriteSheet.png con CCControlHuePicker y
-//     CCControlSaturationBrightnessPicker (prioridad tactil -500 con ForcePrio).
-//   - Corrige el pivote de escalado (setAnchorPoint({0.f, 0.f})) ya que los
-//     sprites internos de CCControlColourPicker estan centrados en (0, 0) con
-//     ignoreAnchorPointForPosition(true).
-//   - Incluye vistas previas de color actual y original (whiteSquare60_001.png),
-//     entradas sincronizadas R:, G:, B: y HEX: con guarda anti-recursion
-//     (m_updatingInputs, equivalente a m_disableTextDelegate en 0x74046c),
-//     botones COPY, PASTE, DEFAULT y boton OK.
+// Integra CCControlColourPicker con el diseno de la Pagina 5 del PDF:
+//   - Muestra grande de color actual y original
+//   - Casillas R, G, B y HEX sincronizadas sin recursion
+//   - Botones COPY, PASTE, DEFAULT y barra inferior OK en color Acento
+//     con texto en Tinta sobre acento.
 // ===========================================================================
 #include <Geode/Geode.hpp>
 #include <Geode/ui/TextInput.hpp>
@@ -44,51 +37,50 @@ protected:
     bool m_updatingInputs = false;
 
     bool init(ccColor3B initialCol, ccColor3B defaultCol, std::function<void(ccColor3B)> onApply) {
-        if (!this->initModal(360.f, 246.f, "", false)) return false;
+        if (!this->initModal(360.f, 246.f, "SELECTOR DE COLOR", true)) return false;
         m_cur = initialCol;
         m_initial = initialCol;
         m_default = defaultCol;
         m_onApply = std::move(onApply);
 
-        // 1. Vistas previas de color (actual arriba y color original debajo, como en ColorSelectPopup 0x73db48)
+        auto pal = ThemeConfig::getPalette();
+
         m_previewCurrent = CCSprite::createWithSpriteFrameName("whiteSquare60_001.png");
         m_previewOrig = CCSprite::createWithSpriteFrameName("whiteSquare60_001.png");
         if (m_previewCurrent && m_previewOrig) {
-            m_previewCurrent->setScale(0.58f);
+            m_previewCurrent->setScale(0.54f);
             m_previewCurrent->setColor(m_cur);
-            m_previewCurrent->setPosition({34.f, 212.f});
+            m_previewCurrent->setPosition({36.f, 192.f});
             m_mainLayer->addChild(m_previewCurrent, 6);
 
-            m_previewOrig->setScale(0.58f * 0.5f);
+            m_previewOrig->setScale(0.28f);
             m_previewOrig->setColor(m_initial);
-            m_previewOrig->setPosition({34.f, 186.f});
+            m_previewOrig->setPosition({64.f, 184.f});
             m_mainLayer->addChild(m_previewOrig, 6);
         } else {
             m_fallbackPreviewDn = CCDrawNode::create();
             m_mainLayer->addChild(m_fallbackPreviewDn, 6);
         }
 
-        // 2. Entradas R:, G:, B: y HEX: a la izquierda (sincronizadas en vivo y sin bucle recursivo)
-        char const* rgbTitles[3] = {"R:", "G:", "B:"};
+        char const* rgbTitles[3] = {"R", "G", "B"};
         float rgbX[3] = {28.f, 66.f, 104.f};
         auto leftBgDn = CCDrawNode::create();
         for (int i = 0; i < 3; ++i) {
-            auto tl = CCLabelBMFont::create(rgbTitles[i], "bigFont.fnt");
-            tl->setScale(0.28f);
-            tl->setColor(ccc3(255, 230, 120));
-            tl->setPosition({rgbX[i], 164.f});
-            m_mainLayer->addChild(tl, 6);
+            if (auto tl = ui::createStyledLabel(rgbTitles[i], false, 0.42f, pal.text3)) {
+                tl->setPosition({rgbX[i], 158.f});
+                m_mainLayer->addChild(tl, 6);
+            }
 
             ui::drawRoundedRect(
-                leftBgDn, rgbX[i] - 16.f, 134.f, 32.f, 20.f, 4.f,
-                rgba4F(ccc3(0x04, 0x0e, 0x28), 0.95f), 0.8f, rgba4F(COL_DIVIDER, 0.9f)
+                leftBgDn, rgbX[i] - 16.f, 128.f, 32.f, 20.f, 4.f,
+                rgba4F(pal.bgOuter, 0.96f), 0.8f, rgba4F(pal.line, 0.9f)
             );
 
             auto inp = TextInput::create(30.f, "255", "bigFont.fnt");
             inp->setFilter("0123456789");
             inp->setMaxCharCount(3);
             inp->setScale(0.85f);
-            inp->setPosition({rgbX[i], 144.f});
+            inp->setPosition({rgbX[i], 138.f});
             if (inp->getBGSprite()) {
                 inp->getBGSprite()->setOpacity(0);
             }
@@ -111,22 +103,21 @@ protected:
             else m_bInput = inp;
         }
 
-        auto hexTitle = CCLabelBMFont::create("HEX:", "bigFont.fnt");
-        hexTitle->setScale(0.28f);
-        hexTitle->setColor(ccc3(255, 230, 120));
-        hexTitle->setPosition({66.f, 116.f});
-        m_mainLayer->addChild(hexTitle, 6);
+        if (auto hexTitle = ui::createStyledLabel("HEX", false, 0.42f, pal.text3)) {
+            hexTitle->setPosition({66.f, 112.f});
+            m_mainLayer->addChild(hexTitle, 6);
+        }
 
         ui::drawRoundedRect(
-            leftBgDn, 24.f, 84.f, 84.f, 22.f, 4.f,
-            rgba4F(ccc3(0x04, 0x0e, 0x28), 0.95f), 0.8f, rgba4F(COL_DIVIDER, 0.9f)
+            leftBgDn, 24.f, 80.f, 84.f, 22.f, 4.f,
+            rgba4F(pal.bgOuter, 0.96f), 0.8f, rgba4F(pal.line, 0.9f)
         );
         m_mainLayer->addChild(leftBgDn, 4);
 
-        m_hexInput = TextInput::create(78.f, "FFFFFF", "bigFont.fnt");
+        m_hexInput = TextInput::create(78.f, "9B5CF6", "bigFont.fnt");
         m_hexInput->setFilter("0123456789abcdefABCDEF");
         m_hexInput->setMaxCharCount(6);
-        m_hexInput->setPosition({66.f, 95.f});
+        m_hexInput->setPosition({66.f, 91.f});
         if (m_hexInput->getBGSprite()) {
             m_hexInput->getBGSprite()->setOpacity(0);
         }
@@ -146,49 +137,42 @@ protected:
         });
         m_mainLayer->addChild(m_hexInput, 12);
 
-        // 3. Rueda nativa oficial de Geometry Dash (CCControlColourPicker)
         m_wheel = cocos2d::extension::CCControlColourPicker::colourPicker();
         if (m_wheel) {
-            // En CCControlColourPicker::init() (0xa9cb8c), los sprites hijos se centran en (0, 0)
-            // mientras que contentSize es (168, 168) e ignoreAnchorPointForPosition es true.
-            // Fijar anchorPoint en (0, 0) garantiza que setScale escale exactamente desde el centro (0, 0)
-            // sin desplazar la rueda ni desalinear convertToNodeSpace en los toques.
             m_wheel->setAnchorPoint({0.f, 0.f});
-            m_wheel->setPosition({188.f, 134.f});
-            m_wheel->setScale(0.84f);
+            m_wheel->setPosition({188.f, 130.f});
+            m_wheel->setScale(0.82f);
             m_wheel->setColorValue(m_cur);
             m_wheel->setDelegate(this);
             m_mainLayer->addChild(m_wheel, 10);
         }
 
-        // 4. Botones derechos: COPY, PASTE, DEFAULT (como en ColorSelectPopup 0x73d8bc..0x73d918)
-        auto copySpr = this->makeStyledActionBtn("COPY", 62.f, 24.f, ccc3(0x16, 0x28, 0x4c), COL_TEXT_SOFT);
+        auto copySpr = ui::makeCustomMenuBtn("COPY", 62.f, 22.f, pal.card, pal.line, 0.24f);
         auto copyBtn = CCMenuItemExt::createSpriteExtra(copySpr, [this](CCMenuItemSpriteExtra*) {
             ThemeConfig::setClipboardColor(m_cur);
         });
         copyBtn->m_scaleMultiplier = 1.03f;
-        copyBtn->setPosition({316.f, 208.f});
+        copyBtn->setPosition({316.f, 188.f});
         m_ui->addChild(copyBtn);
 
-        auto pasteSpr = this->makeStyledActionBtn("PASTE", 62.f, 24.f, ccc3(0x16, 0x28, 0x4c), COL_TEXT_SOFT);
+        auto pasteSpr = ui::makeCustomMenuBtn("PASTE", 62.f, 22.f, pal.card, pal.line, 0.24f);
         auto pasteBtn = CCMenuItemExt::createSpriteExtra(pasteSpr, [this](CCMenuItemSpriteExtra*) {
             ccColor3B clip = ThemeConfig::getClipboardColor();
             this->applyColorProgrammatically(clip);
         });
         pasteBtn->m_scaleMultiplier = 1.03f;
-        pasteBtn->setPosition({316.f, 174.f});
+        pasteBtn->setPosition({316.f, 156.f});
         m_ui->addChild(pasteBtn);
 
-        auto defSpr = this->makeStyledActionBtn("DEFAULT", 62.f, 24.f, ccc3(0x16, 0x28, 0x4c), COL_TEXT_SOFT);
+        auto defSpr = ui::makeCustomMenuBtn("DEFAULT", 62.f, 22.f, pal.card, pal.line, 0.24f);
         auto defBtn = CCMenuItemExt::createSpriteExtra(defSpr, [this](CCMenuItemSpriteExtra*) {
             this->applyColorProgrammatically(m_default);
         });
         defBtn->m_scaleMultiplier = 1.03f;
-        defBtn->setPosition({316.f, 140.f});
+        defBtn->setPosition({316.f, 124.f});
         m_ui->addChild(defBtn);
 
-        // 5. Boton inferior central: OK
-        auto okSpr = this->makeStyledActionBtn("OK", 68.f, 26.f, ccc3(0x10, 0x5c, 0x38), COL_NEON_GREEN);
+        auto okSpr = ui::makeCustomMenuBtn("OK", 160.f, 26.f, pal.accent, pal.accent, 0.28f, true, 6.f);
         auto okBtn = CCMenuItemExt::createSpriteExtra(okSpr, [this](CCMenuItemSpriteExtra*) {
             if (m_onApply) m_onApply(m_cur);
             this->onClose(nullptr);
@@ -197,7 +181,6 @@ protected:
         okBtn->setPosition({188.f, 24.f});
         m_ui->addChild(okBtn);
 
-        // Sincronizacion inicial de todos los campos
         m_updatingInputs = true;
         this->updatePreviews(m_cur);
         this->syncRgbFields(m_cur);
@@ -224,8 +207,8 @@ protected:
         if (m_fallbackPreviewDn) {
             m_fallbackPreviewDn->clear();
             ui::drawRoundedRect(
-                m_fallbackPreviewDn, 18.f, 192.f, 32.f, 36.f, 3.f,
-                rgba4F(c, 1.f), 1.5f, rgba4F(COL_TEXT_WHITE, 0.95f)
+                m_fallbackPreviewDn, 18.f, 176.f, 32.f, 32.f, 4.f,
+                rgba4F(c, 1.f), 1.2f, rgba4F(COL_TEXT_WHITE, 0.9f)
             );
         }
     }
@@ -248,8 +231,6 @@ protected:
     }
 
 public:
-    // Callback de ColorPickerDelegate disparado por CCControlColourPicker al arrastrar
-    // el anillo de matiz (hueSliderValueChanged) o el disco S/V (colourSliderValueChanged).
     void colorValueChanged(ccColor3B c) override {
         m_cur = c;
         this->updatePreviews(c);
