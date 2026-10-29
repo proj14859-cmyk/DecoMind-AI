@@ -2096,7 +2096,11 @@ protected:
             y -= row.height;
             float x = row.user ? ps(284.f) : ps(12.f);
             auto dn = CCDrawNode::create();
-            ui::drawRoundedRect(dn, x, y, ps(538.f), row.height, ps(14.f),
+            // ScrollLayer culls children by their bounds: geometry must be local
+            // and the draw node must expose the bubble's actual rectangle.
+            dn->setContentSize({ps(538.f), row.height});
+            dn->setPosition({x, y});
+            ui::drawRoundedRect(dn, 0.f, 0.f, ps(538.f), row.height, ps(14.f),
                 rgba4F(row.user ? pal.accent : pal.card, .98f), ps(1.f),
                 rgba4F(row.user ? pal.accentSoft : pal.line, .8f));
             layer->addChild(dn, 1);
@@ -3005,8 +3009,8 @@ protected:
             (m_colorEditTarget == 2) ? "RUEDA: ROBOT RGB" : "SELECTOR DE COLOR";
         m_embTargetTitleLbl = ui::createStyledLabel(targetName, true, 0.22f, pal.text2, ps(240.f));
         if (m_embTargetTitleLbl) {
-            m_embTargetTitleLbl->setAnchorPoint({0.f, 0.5f});
-            m_embTargetTitleLbl->setPosition({px(1108.f), py(162.f)});
+            m_embTargetTitleLbl->setAnchorPoint({0.5f, 0.5f});
+            m_embTargetTitleLbl->setPosition({px(1296.f), py(158.f)});
             page->addChild(m_embTargetTitleLbl, 5);
         }
 
@@ -3015,7 +3019,7 @@ protected:
         if (m_embeddedWheel) {
             m_embeddedWheel->setAnchorPoint({0.f, 0.f});
             m_embeddedWheel->setPosition({px(1296.f), py(362.f)});
-            m_embeddedWheel->setScale(0.76f);
+            m_embeddedWheel->setScale(0.66f);
             m_embeddedWheel->setColorValue(m_embCurColor);
             m_embeddedWheel->setDelegate(this);
             page->addChild(m_embeddedWheel, 10);
