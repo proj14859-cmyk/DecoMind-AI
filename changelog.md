@@ -1,3 +1,9 @@
+## Corrección adicional de v0.3.8-alpha
+
+- Las burbujas declaran sus límites y posición para que ScrollLayer no las oculte al terminar el desplazamiento.
+- Título del selector centrado horizontalmente; rueda reducida para dejar separación con el título y los campos RGB.
+- Pendiente de compilación con Geode y validación visual en el juego.
+
 # v0.3.8-alpha
 
 - Sincroniza el contorno de Información con el modo seleccionado en Inicio y Chat.
