@@ -65,7 +65,7 @@ public:
                                      : "No se pudo confirmar el modelo " + expectedModel + ". Comprueba ai-model y permisos de tu cuenta.";
                     }
                 }
-                m_state = ok ? ProviderState::Ready : ProviderState::Failed;
+                m_state = ok ? ProviderState::Finished : ProviderState::Failed;
                 if (done) done(ok, message);
             });
     }
@@ -84,7 +84,9 @@ public:
         if (isBusy()) return;
         if (!editor || LevelEditorLayer::get() != editor) return;
         auto context = EditorPerception::capture(editor);
-        auto refs = ExampleLibrary::retrieve(Mod::get()->getResourcesDir().toStdPath() / "examples" / "patterns.jsonc", prompt);
+        std::vector<StyleReference> refs;
+        auto resourcesPath = Mod::get()->getResourcesDir().toStdPath();
+        if (resourcesPath) refs = ExampleLibrary::retrieve(resourcesPath.unwrap() / "examples" / "patterns.jsonc", prompt);
         auto mode = ProviderManager::mode();
         if (mode == "offline-rules" || mode == "auto") {
             AIResponseData r;

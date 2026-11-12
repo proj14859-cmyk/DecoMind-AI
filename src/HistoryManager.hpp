@@ -40,7 +40,7 @@ public:
         return messages;
     }
     static std::filesystem::path chatPath() {
-        return Mod::get()->getSaveDir().toStdPath() / "conversacion.txt";
+        return Mod::get()->getSaveDir().toStdPath().unwrap() / "conversacion.txt";
     }
     static void loadChat() {
         auto& messages = chatMessages();
@@ -82,15 +82,15 @@ public:
     }
 
     static std::filesystem::path historyPath() {
-        return Mod::get()->getSaveDir().toStdPath() / "historial.txt";
+        return Mod::get()->getSaveDir().toStdPath().unwrap() / "historial.txt";
     }
 
     static std::filesystem::path favoritesPath() {
-        return Mod::get()->getSaveDir().toStdPath() / "favoritos.txt";
+        return Mod::get()->getSaveDir().toStdPath().unwrap() / "favoritos.txt";
     }
 
     static std::filesystem::path phrasesPath() {
-        return Mod::get()->getSaveDir().toStdPath() / "frases.txt";
+        return Mod::get()->getSaveDir().toStdPath().unwrap() / "frases.txt";
     }
 
     static void ensureLoaded() {

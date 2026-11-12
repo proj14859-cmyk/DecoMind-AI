@@ -23,7 +23,7 @@ public:
         level->m_levelString = data;
         level->m_audioTrack = static_cast<int>(j["audioTrack"].asInt().unwrapOr(0));
         level->m_songID = static_cast<int>(j["songID"].asInt().unwrapOr(0));
-        LocalLevelManager::sharedState()->save();
+        LocalLevelManager::sharedState()->save(false);
         message = "Copia recuperada en Mis niveles. El nivel abierto se conserva.";
         return true;
     }

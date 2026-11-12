@@ -701,7 +701,7 @@ public:
 
     // Gestion de respaldos / puntos de guardado locales
     static std::filesystem::path backupsDir() {
-        auto dir = Mod::get()->getSaveDir().toStdPath() / "backups";
+        auto dir = Mod::get()->getSaveDir().toStdPath().unwrap() / "backups";
         std::error_code ec;
         std::filesystem::create_directories(dir, ec);
         return dir;
