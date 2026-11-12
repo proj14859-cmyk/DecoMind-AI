@@ -1141,7 +1141,7 @@ protected:
         mascotBtn->setPosition({px(768.f), py(64.f)});
         m_fixedMenu->addChild(mascotBtn);
 
-        // Pildora de estado de conexion (derecha) + Pildora de version ("v0.3.8 a")
+        // Pildora de estado de conexion (derecha) + Pildora de version ("v0.4.0 a")
         m_connPillDn = CCDrawNode::create();
         m_mainLayer->addChild(m_connPillDn, 14);
 
@@ -1159,7 +1159,7 @@ protected:
             1426.f, 47.f, 82.f, 38.f, 12.f,
             pal.card, 0.98f, pal.line, 0.90f, 1.2f, 14
         );
-        if (auto verLbl = ui::createStyledLabel("v0.3.8 a", false, 0.40f, pal.text2, ps(74.f))) {
+        if (auto verLbl = ui::createStyledLabel("v0.4.0 a", false, 0.40f, pal.text2, ps(74.f))) {
             verLbl->setPosition({px(1467.f), py(66.f)});
             m_mainLayer->addChild(verLbl, 15);
         }
@@ -3976,6 +3976,7 @@ protected:
     }
     void inspectPreview() {
         if (m_inspectionMenu) return;
+        if (m_promptInput) m_promptInput->defocus();
         m_previousOpacity = this->getOpacity(); this->setOpacity(0);
         m_mainLayer->setVisible(false);
         auto win = CCDirector::get()->getWinSize();
@@ -4054,7 +4055,7 @@ protected:
             this->updateChatStatusText(
                 "ENVIANDO",
                 COL_STATUS_AMBER,
-                "Leyendo el catalogo de objetos del juego y subiendolo al servidor..."
+                "Consultando el catalogo local de confianza..."
             );
             m_aiClient.uploadCatalog([this](bool ok, std::string const& msg) {
                 this->updateChatStatusText(
@@ -4113,15 +4114,17 @@ protected:
                 }
                 if (!res.plan.objects.empty()) {
                     if (std::string(MODES[modeToUse].id) == "ideas") {
-                        finalMsg = "El modo Ideas no puede crear objetos.";
-                    } else if (m_preview.begin(m_lel, res.plan, m_requestContext, finalMsg)) {
+                        updateChatStatusText("REVISION", COL_STATUS_RED, "El modo Ideas no puede crear objetos."); return;
+                    } else if (!m_preview.begin(m_lel, res.plan, m_requestContext, finalMsg)) {
+                        updateChatStatusText("REVISION", COL_STATUS_RED, finalMsg); return;
+                    } else {
                         m_previewAnnounced = false;
                         m_pendingReferences = res.plan.references;
                         finalMsg += " El respaldo original se guardo antes de colocar.";
                     }
                 }
 
-                this->updateChatStatusText("LISTO", COL_STATUS_GREEN, finalMsg);
+                this->updateChatStatusText(m_preview.active() ? "PREPARANDO" : "LISTO", m_preview.active() ? COL_STATUS_AMBER : COL_STATUS_GREEN, finalMsg);
                 this->refreshUsagePanel();
                 this->refreshPage2ChatPerception();
             }
