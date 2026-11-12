@@ -25,6 +25,8 @@ public:
         operations::Plan p;
         p.schemaVersion = integer(j, "schemaVersion", 0);
         p.requestId = j["requestId"].asString().unwrapOr("");
+        p.summary = j["summary"].asString().unwrapOr("");
+        if (p.summary.size() > 2048) throw std::runtime_error("Resumen demasiado grande.");
         auto ops = j["operations"].asArray();
         if (!ops || ops.unwrap().size() > 1000) throw std::runtime_error("Lista de operaciones invalida.");
         for (auto const& v : ops.unwrap()) {
@@ -45,8 +47,8 @@ public:
                 auto a = v["groups"].asArray();
                 if (!a || a.unwrap().size() > 10) throw std::runtime_error("Grupos invalidos.");
                 for (auto const& g : a.unwrap()) {
-                    auto n = g.asInt();
-                    if (!n || n.unwrap() < 1 || n.unwrap() > 9999) throw std::runtime_error("Grupo invalido.");
+                    auto n = g.asDouble();
+                    if (!n || !std::isfinite(n.unwrap()) || n.unwrap() != std::floor(n.unwrap()) || n.unwrap() < 1 || n.unwrap() > 9999) throw std::runtime_error("Grupo invalido.");
                     o.groups.push_back(static_cast<int>(n.unwrap()));
                 }
             }

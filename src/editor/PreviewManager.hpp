@@ -46,6 +46,7 @@ public:
     bool accept() {
         if (!ready() || !sameEditor()) return false;
         m_editor->addToUndoList(UndoObject::createWithArray(m_added, UndoCommand::Paste), false);
+        if (m_editor->m_editorUI) m_editor->m_editorUI->updateButtons();
         clear(); return true;
     }
     void reject() {
@@ -57,6 +58,7 @@ public:
                 if (m_editor->m_objects->containsObject(obj)) m_editor->removeObject(obj, true);
             }
         }
+        if (sameEditor() && m_editor->m_editorUI) m_editor->m_editorUI->updateButtons();
         clear();
     }
 private:

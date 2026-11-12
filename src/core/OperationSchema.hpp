@@ -20,6 +20,7 @@ struct CreateObject {
 struct Plan {
     int schemaVersion = 1;
     std::string requestId;
+    std::string summary;
     std::vector<CreateObject> objects;
     std::vector<std::string> references;
 };
