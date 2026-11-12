@@ -30,19 +30,5 @@ public:
         if (code >= 500) return "Proveedor no disponible. Reintenta o elige Sin conexion.";
         return "Fallo HTTPS o timeout. No se modifico el nivel.";
     }
-    static operations::Plan offline(operations::Context const& c, std::string const& prompt) {
-        operations::Plan p; p.requestId = "offline-rules";
-        // Small decorative frames around the work region; no gameplay or triggers.
-        int object = prompt.find("espac") != std::string::npos ? 505 : 15;
-        for (int i = 0; i < 10; ++i) {
-            operations::CreateObject o;
-            o.tempId = "rule-" + std::to_string(i); o.objectId = object;
-            o.x = c.region.minX + (c.region.maxX - c.region.minX) * (i + 1) / 11;
-            o.y = i % 2 ? c.region.minY + 15 : c.region.maxY - 15;
-            o.scale = object == 505 ? .5 : 1;
-            p.objects.push_back(o);
-        }
-        return p;
-    }
 };
 }

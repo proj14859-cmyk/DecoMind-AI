@@ -2,6 +2,7 @@
 #include "../../src/core/PlanJson.hpp"
 #include "../../src/editor/NativePlacementEngine.hpp"
 #include "../../src/examples/ExampleLibrary.hpp"
+#include "../../src/providers/OfflineRuleProvider.hpp"
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -11,6 +12,14 @@ template<class F> void throws(F f) { bool caught = false; try { f(); } catch (..
 int main(int argc, char** argv) {
     require(argc == 2);
     operations::Context c;
+    for (auto const& mode : {"auto", "offline-rules"}) {
+        for (auto const& prompt : {"deco moderna de una estructura", "espacial brillante en zona seleccionada", "Nine Circles glow con ruta de wave clara"}) {
+            require(OfflineRuleProvider::diagnosticPlan(mode, prompt, c).objects.empty());
+        }
+    }
+    require(OfflineRuleProvider::diagnosticPlan("auto", "/prueba-nativa", c).objects.empty());
+    auto smoke = OfflineRuleProvider::diagnosticPlan("offline-rules", "/prueba-nativa", c);
+    require(smoke.objects.size() == 10 && OperationValidator::validate(smoke, c).ok());
     auto make = [] {
         operations::Plan p; p.requestId = "test";
         operations::CreateObject o; o.tempId = "one"; o.objectId = 15; o.x = 50; o.y = 50;

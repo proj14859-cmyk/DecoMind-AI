@@ -3,6 +3,7 @@
 #include "editor/EditorPerception.hpp"
 #include "core/PlanJson.hpp"
 #include "providers/ProviderManager.hpp"
+#include "providers/OfflineRuleProvider.hpp"
 #include "examples/ExampleLibrary.hpp"
 #include <Geode/utils/async.hpp>
 #include <Geode/utils/web.hpp>
@@ -49,16 +50,27 @@ public:
         auto refs = ExampleLibrary::retrieve(Mod::get()->getResourcesDir() / "examples" / "patterns.jsonc", prompt);
         auto mode = ProviderManager::mode();
         if (mode == "offline-rules" || mode == "auto") {
-            AIResponseData r; r.ok = true; r.isLocalDemo = true;
-            if (std::string(MODES[std::clamp(modeIdx, 0, 8)].id) != "ideas") r.plan = ProviderManager::offline(context, prompt);
-            for (auto const& ref : refs) r.plan.references.push_back(ref.id);
-            r.message = mode == "auto" ? "Sin servicio comunitario habilitado: generador por reglas sin conexion." : "Generador por reglas sin conexion (no LLM).";
-            if (std::string(MODES[std::clamp(modeIdx, 0, 8)].id) == "ideas") {
+            AIResponseData r;
+            r.isLocalDemo = true;
+            r.plan = OfflineRuleProvider::diagnosticPlan(mode, prompt, context);
+            bool adviceOnly = std::string(MODES[std::clamp(modeIdx, 0, 8)].id) == "ideas";
+            if (adviceOnly) {
                 std::string advice;
                 LevelExecutor::generateContextualLocalObjects(editor, "ideas", prompt, getLocalSections(), advice);
-                r.message += " " + advice;
+                r.ok = true;
+                r.message = "Consejos por reglas, sin IA remota: " + advice;
+            } else if (!r.plan.objects.empty()) {
+                // Explicit placement diagnostic only. Never substitute this pattern for a user's request.
+                r.ok = true;
+                r.message = "Prueba nativa: patron fijo de 10 elementos. No interpreta instrucciones.";
+            } else {
+                m_state = ProviderState::Unavailable;
+                r.message = mode == "auto"
+                    ? "No hay un proveedor de IA automatico disponible. Elige API personal, configura proveedor/modelo y guarda tu clave de sesion. No se genero una decoracion de prueba en lugar de tu pedido."
+                    : "El modo sin conexion aun no dispone de recetas que interpreten este pedido. Usa API personal para generar con IA. /prueba-nativa solo comprueba colocacion y rechazo con un patron fijo.";
             }
-            if (done) done(r); return;
+            if (done) done(r);
+            return;
         }
         auto provider = ProviderManager::provider();
         auto key = ProviderCredentials::get(provider);
