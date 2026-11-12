@@ -32,18 +32,15 @@ public:
         if (callback) callback(m_state == ProviderState::Finished);
     }
     // Compatibility adapter for the original UI; ai-mode is the sole source of truth.
-    static std::string getOriginMode() { return ProviderManager::mode() == "offline-rules" ? "local" : "server"; }
+    static std::string getOriginMode() { auto mode = ProviderManager::mode(); return (mode == "offline-rules" || mode == "auto") ? "local" : "server"; }
     static void setOriginMode(std::string const& m) {
         Mod::get()->setSettingValue<std::string>("ai-mode", m == "local" ? "offline-rules" : "api-personal");
         (void)Mod::get()->saveData();
     }
-    // Kept as API adapters while the existing settings card is migrated to a key field.
-    static std::string getServerUrl() { return ""; }
-    static void setServerUrl(std::string const&) {}
     static int getLocalSections() { return std::clamp(Mod::get()->getSavedValue<int>("local_sections", 8), 1, 40); }
     static void setLocalSections(int s) { Mod::get()->setSavedValue("local_sections", std::clamp(s, 1, 40)); }
     void uploadCatalog(std::function<void(bool, std::string const&)> callback) {
-        if (callback) callback(false, "El catalogo ahora se valida dentro del mod. No se suben datos al antiguo servidor.");
+        if (callback) callback(true, "Catalogo inicial: 7 IDs documentados, 6 decorativos habilitados. Verificacion en juego pendiente. Consulta local, sin subida de datos.");
     }
     void sendRequest(int modeIdx, std::string const& prompt, LevelEditorLayer* editor, Callback done) {
         if (m_busy) return;
