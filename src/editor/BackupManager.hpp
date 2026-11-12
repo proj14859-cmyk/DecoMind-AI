@@ -1,6 +1,6 @@
 #pragma once
 #include <Geode/Geode.hpp>
-#include <Geode/utils/file.hpp>
+#include "../core/FileIO.hpp"
 #include <chrono>
 #include <filesystem>
 namespace decomind {
@@ -10,7 +10,7 @@ public:
         std::error_code ec;
         auto size = std::filesystem::file_size(path, ec);
         if (ec || size > 64 * 1024 * 1024) { message = "Respaldo ausente o demasiado grande."; return false; }
-        auto content = geode::utils::file::readString(path);
+        auto content = FileIO::readString(path);
         if (!content) { message = "No se pudo leer el respaldo."; return false; }
         auto parsed = matjson::parse(content.unwrap());
         if (!parsed) { message = "Respaldo JSON invalido."; return false; }
@@ -43,8 +43,8 @@ public:
         backup["timestamp"] = std::to_string(stamp);
         auto destination = dir / ("backup_" + std::to_string(stamp) + ".json");
         auto temporary = destination; temporary += ".tmp";
-        if (!geode::utils::file::writeString(temporary, backup.dump())) { message = "No se pudo escribir el respaldo."; return false; }
-        auto check = geode::utils::file::readString(temporary);
+        if (!FileIO::writeString(temporary, backup.dump())) { message = "No se pudo escribir el respaldo."; return false; }
+        auto check = FileIO::readString(temporary);
         auto parsed = check ? matjson::parse(check.unwrap()) : matjson::parse("");
         if (!parsed || parsed.unwrap()["levelData"].asString().unwrapOr("") != data) {
             std::error_code ec; std::filesystem::remove(temporary, ec);

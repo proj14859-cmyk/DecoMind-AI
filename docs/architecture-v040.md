@@ -28,4 +28,4 @@ Al terminar la colocación se oculta temporalmente el panel para inspeccionar el
 
 ## Dependencias
 
-C++20, Geode 5.11.2 y GD 2.2081. Sin ImGui ni dependencia runtime de Python/Termux. Las pruebas del núcleo usan matjson 3.3.1 y Result 1.4.1, iguales a Geode. No se incorporan binarios ni sprites propietarios de GD.
+Desde v0.4.1-alpha: C++20, Geode 6.0.0-alpha.1 y GD 2.2091. La primera integración v0.4.0 usaba Geode 5.11.2 / GD 2.2081. Sin ImGui ni dependencia runtime de Python/Termux. Las pruebas del núcleo usan matjson 4.0.1 y Result 1.5.0, iguales a Geode. No se incorporan binarios ni sprites propietarios de GD.

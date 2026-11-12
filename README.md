@@ -1,3 +1,5 @@
+> **v0.4.1-alpha: Geode 6.0.0-alpha.1 / GD 2.2091.** [Migración, configuración y prueba de Groq](docs/migration-geode-v6.md). Esta es la combinación nueva de compilación; las referencias a Geode 5 y GD 2.2081 de entregas anteriores son históricas. El catálogo completo sigue pendiente.
+
 > **Corrección de generación:** el patrón fijo de diez objetos ya no sustituye los pedidos del modo Automático o Sin conexión. La generación con IA requiere API personal configurada; la integración del catálogo completo todavía está pendiente de disponer del ZIP. `/prueba-nativa` queda reservado a diagnóstico explícito.
 
 > **v0.4.0-alpha — integración experimental del plan v1.1.** Nuevo motor validado con preview, respaldo completo y cliente HTTPS directo OpenAI/Groq. Sin Termux. Claves solo durante la sesión. La aceptación dentro de Android sigue pendiente; no es la implementación completa de todas las fases.

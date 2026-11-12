@@ -5,6 +5,7 @@
 #include "providers/ProviderManager.hpp"
 #include "providers/OfflineRuleProvider.hpp"
 #include "examples/ExampleLibrary.hpp"
+#include <asp/fs/std.hpp>
 #include <Geode/utils/async.hpp>
 #include <Geode/utils/web.hpp>
 #include <chrono>
@@ -20,17 +21,53 @@ struct AIResponseData {
 };
 class AIClient {
     bool m_busy = false;
+    bool m_testing = false;
     ProviderState m_state = ProviderState::Ready;
     async::TaskHolder<web::WebResponse> m_task;
+    async::TaskHolder<web::WebResponse> m_probeTask;
 public:
     using Callback = std::function<void(AIResponseData const&)>;
     ~AIClient() { cancel(); }
-    bool isBusy() const { return m_busy; }
+    bool isBusy() const { return m_busy || m_testing; }
     ProviderState state() const { return m_state; }
-    void cancel() { m_task.cancel(); m_busy = false; m_state = ProviderState::Canceled; }
+    void cancel() { m_task.cancel(); m_probeTask.cancel(); m_busy = false; m_testing = false; m_state = ProviderState::Canceled; }
     void checkConnection(std::function<void(bool)> callback) {
         // No unsolicited background network traffic or paid probes.
         if (callback) callback(m_state == ProviderState::Finished);
+    }
+    void testProvider(std::function<void(bool, std::string const&)> done) {
+        if (isBusy()) { if (done) done(false, "Espera a que termine la solicitud actual."); return; }
+        auto provider = ProviderManager::provider();
+        auto key = ProviderCredentials::get(provider);
+        if (key.empty()) { if (done) done(false, "Guarda primero una clave de sesion para el proveedor seleccionado."); return; }
+        auto expectedModel = ProviderManager::model();
+        auto req = web::WebRequest();
+        req.header("Authorization", "Bearer " + key);
+        req.followRedirects(false); req.timeout(std::chrono::seconds(15));
+        m_testing = true; m_state = ProviderState::Connecting;
+        m_probeTask.spawn("decomind-provider-test", req.get(ProviderManager::modelsEndpoint()),
+            [this, done, expectedModel](web::WebResponse response) {
+                m_testing = false;
+                bool ok = false;
+                std::string message;
+                if (!response.ok()) message = ProviderManager::errorFor(response.code());
+                else {
+                    auto text = response.string().unwrapOr("");
+                    if (text.size() > 2 * 1024 * 1024) message = "Lista de modelos demasiado grande.";
+                    else {
+                        auto parsed = matjson::parse(text);
+                        if (parsed) {
+                            auto models = parsed.unwrap()["data"].asArray();
+                            if (models) for (auto const& model : models.unwrap())
+                                if (model["id"].asString().unwrapOr("") == expectedModel) { ok = true; break; }
+                        }
+                        message = ok ? "Conexion y modelo disponibles: " + expectedModel + ". Prueba sin enviar datos del nivel."
+                                     : "No se pudo confirmar el modelo " + expectedModel + ". Comprueba ai-model y permisos de tu cuenta.";
+                    }
+                }
+                m_state = ok ? ProviderState::Ready : ProviderState::Failed;
+                if (done) done(ok, message);
+            });
     }
     // Compatibility adapter for the original UI; ai-mode is the sole source of truth.
     static std::string getOriginMode() { auto mode = ProviderManager::mode(); return (mode == "offline-rules" || mode == "auto") ? "local" : "server"; }
@@ -44,10 +81,10 @@ public:
         if (callback) callback(true, "Catalogo inicial: 7 IDs documentados, 6 decorativos habilitados. Verificacion en juego pendiente. Consulta local, sin subida de datos.");
     }
     void sendRequest(int modeIdx, std::string const& prompt, LevelEditorLayer* editor, Callback done) {
-        if (m_busy) return;
+        if (isBusy()) return;
         if (!editor || LevelEditorLayer::get() != editor) return;
         auto context = EditorPerception::capture(editor);
-        auto refs = ExampleLibrary::retrieve(Mod::get()->getResourcesDir() / "examples" / "patterns.jsonc", prompt);
+        auto refs = ExampleLibrary::retrieve(Mod::get()->getResourcesDir().toStdPath() / "examples" / "patterns.jsonc", prompt);
         auto mode = ProviderManager::mode();
         if (mode == "offline-rules" || mode == "auto") {
             AIResponseData r;
@@ -90,7 +127,7 @@ public:
         auto messages = matjson::Value::array();
         messages.push(matjson::makeObject({{"role", "system"}, {"content", system}}));
         messages.push(matjson::makeObject({{"role", "user"}, {"content", prompt}}));
-        auto body = matjson::makeObject({{"model", ProviderManager::model()}, {"messages", messages}, {"max_tokens", 4096}});
+        auto body = matjson::makeObject({{"model", ProviderManager::model()}, {"messages", messages}, {"max_tokens", 4096}, {"response_format", matjson::makeObject({{"type", "json_object"}})}});
         auto req = web::WebRequest();
         req.header("Authorization", "Bearer " + key);
         req.header("Content-Type", "application/json");
