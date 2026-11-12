@@ -53,7 +53,7 @@
         "api-personal",
         "offline-rules"
       ],
-      "description": "Automatico usa reglas offline mientras no exista un servicio comunitario autorizado. API personal requiere clave de sesion."
+      "description": "Automatico informa si no hay IA disponible. API personal requiere clave de sesion. Sin conexion ofrece consejos; /prueba-nativa es solo diagnostico."
     },
     "ai-provider": {
       "type": "string",

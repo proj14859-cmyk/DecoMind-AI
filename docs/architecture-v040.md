@@ -19,7 +19,7 @@ Al terminar la colocación se oculta temporalmente el panel para inspeccionar el
 - Solo createObject. update/delete, cambios de canales, triggers, cámara y T4 se rechazan.
 - Catálogo inicial reducido: IDs 1,15,16,17,503,504,505; 1 es gameplay y está bloqueado por defecto. Son entradas documentadas, **sin certificación runtime**. No se declara cobertura de 4.083 objetos.
 - Las nueve páginas/modos originales permanecen; sus capacidades avanzadas todavía no están implementadas por el nuevo motor. Layout también está limitado a propuestas decorativas, e Ideas no puede crear objetos.
-- El generador offline propone diez elementos decorativos sencillos. No es un LLM ni garantiza calidad visual/jugabilidad.
+- Automatico y Sin conexion no sustituyen los pedidos por patrones fijos. Si no existe un proveedor o receta capaz de atenderlos, lo indican sin crear objetos. El patron de diez elementos queda reservado al comando explicito `/prueba-nativa` en Sin conexion, como diagnostico. Ideas mantiene los consejos consultivos.
 - La biblioteca JSONC inicial contiene tres referencias semánticas originales; no redistribuye geometría de niveles ajenos. Recuperación local por tags, hasta cinco referencias, guardadas en historial al aceptar.
 - No hay sync musical, cámara, agentes LLM adicionales, ni comunidad Platinum habilitada.
 - Persistencia de claves protegida por SO pendiente. Las claves solo viven en memoria durante la sesión.
