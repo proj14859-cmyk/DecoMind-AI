@@ -36,6 +36,12 @@ int main(int argc, char** argv) {
     reject([](auto& p) { p.objects[0].colorId = 20; });
     reject([](auto& p) { p.objects.resize(401, p.objects[0]); });
     auto original = std::string(R"({"schemaVersion":1,"requestId":"t","operations":[{"op":"createObject","tempId":"a","objectId":505,"position":{"x":50,"y":40}}]})");
+    for (int i = 0; i < 100; ++i) {
+        auto v = matjson::parse(original).unwrap();
+        v["requestId"] = "parsed-" + std::to_string(i);
+        v["operations"][0]["position"]["x"] = 50 + i;
+        require(OperationValidator::validate(PlanJson::parse(v.dump()), c).ok());
+    }
     auto p = PlanJson::parse(original);
     require(p.objects.size() == 1 && OperationValidator::validate(p, c).ok());
     require(NativePlacementEngine::serialize(p.objects[0]).find("1,505,2,50,3,40") == 0);
@@ -43,6 +49,7 @@ int main(int argc, char** argv) {
     throws([] { PlanJson::parse(R"({"schemaVersion":1,"requestId":"t","operations":[{"op":"deleteObject"}]})"); });
     throws([] { PlanJson::parse(R"({"schemaVersion":1,"requestId":"t","operations":[{"op":"createObject","rawGD":"1,9999"}]})"); });
     throws([] { PlanJson::parse(R"({"schemaVersion":1,"requestId":"t","operations":[{"op":"createObject","objectId":15.5}]})"); });
+    throws([] { PlanJson::parse(R"({"schemaVersion":1,"requestId":"t","operations":[{"op":"createObject","objectId":15,"groups":[1.5]}]})"); });
     auto jsonc = JsoncLoader::stripComments("{ // comment\n\"url\":\"https://host/*literal*/\",/* multi\nline */\"v\":1}");
     auto j = matjson::parse(jsonc);
     require(j && j.unwrap()["url"].asString().unwrapOr("") == "https://host/*literal*/");

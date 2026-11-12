@@ -6,7 +6,7 @@
 4. Para borrar la clave, deja el campo vacío y pulsa GUARDAR. Al salir del proceso también se pierde. Cambiar de proveedor no reutiliza la clave del anterior.
 5. Elige Sin conexión para no usar red. `auto` usa reglas offline mientras no exista un proveedor comunitario autorizado; `free` informa de la falta de servicio.
 
-Endpoints fijos HTTPS, validación TLS predeterminada de Geode, timeout de 45 segundos, máximo de 4096 tokens solicitados, máximo de 1 MiB para procesar la respuesta recibida y 512 KiB para el plan. El límite de cuerpo se comprueba después de recibirlo; todavía no limita el buffer del transporte. Sin redirección/fallback explícito entre proveedores, sin retries automáticos. Errores 401/403,429,5xx y transporte se presentan sin imprimir cuerpos ni cabeceras.
+Endpoints fijos HTTPS, validación TLS predeterminada de Geode, timeout de 45 segundos, máximo de 4096 tokens solicitados, máximo de 1 MiB para procesar la respuesta recibida y 512 KiB para el plan. El límite de cuerpo se comprueba después de recibirlo; todavía no limita el buffer del transporte. Redirecciones HTTP desactivadas, sin fallback entre proveedores, sin retries automáticos. Errores 401/403,429,5xx y transporte se presentan sin imprimir cuerpos ni cabeceras.
 
 Las claves no se guardan en settings, backups, prompts ni historial. Esto es almacenamiento **solo en sesión**, no un Android Keystore, ni una promesa de borrado criptográfico de todas las copias internas del cliente HTTPS. Integrar almacenamiento protegido es requisito pendiente para persistencia pública.
 

@@ -56,6 +56,11 @@ public:
             if (std::string(MODES[std::clamp(modeIdx, 0, 8)].id) != "ideas") r.plan = ProviderManager::offline(context, prompt);
             for (auto const& ref : refs) r.plan.references.push_back(ref.id);
             r.message = mode == "auto" ? "Sin servicio comunitario habilitado: generador por reglas sin conexion." : "Generador por reglas sin conexion (no LLM).";
+            if (std::string(MODES[std::clamp(modeIdx, 0, 8)].id) == "ideas") {
+                std::string advice;
+                LevelExecutor::generateContextualLocalObjects(editor, "ideas", prompt, getLocalSections(), advice);
+                r.message += " " + advice;
+            }
             if (done) done(r); return;
         }
         auto provider = ProviderManager::provider();
@@ -65,7 +70,7 @@ public:
             m_state = ProviderState::Unavailable; if (done) done(r); return;
         }
         int idx = std::clamp(modeIdx, 0, 8);
-        std::string system = std::string("Eres DecoMind. Responde SOLO JSON sin Markdown. Esquema: {\"schemaVersion\":1,\"requestId\":\"unique\",\"operations\":[{\"op\":\"createObject\",\"tempId\":\"unique\",\"objectId\":211,\"position\":{\"x\":0,\"y\":0},\"scale\":1,\"zLayer\":-1}]}. ") +
+        std::string system = std::string("Eres DecoMind. Responde SOLO JSON sin Markdown. Esquema: {\"schemaVersion\":1,\"requestId\":\"unique\",\"summary\":\"Resumen en espanol\",\"operations\":[{\"op\":\"createObject\",\"tempId\":\"unique\",\"objectId\":15,\"position\":{\"x\":0,\"y\":0},\"scale\":1,\"zLayer\":-1}]}. ") +
             "Solo decoracion IDs 15,16,17,503,504,505. No triggers ni gameplay. Maximo 100 objetos. No grupos ni colores. Escala .1..4. " +
             "Region: x=" + std::to_string(context.region.minX) + ".." + std::to_string(context.region.maxX) + "; y=" + std::to_string(context.region.minY) + ".." + std::to_string(context.region.maxY) + ". " + MODES[idx].internalPrompt;
         if (std::string(MODES[idx].id) == "ideas") system += " Modo consultivo: operations debe estar vacio.";
@@ -80,6 +85,7 @@ public:
         auto req = web::WebRequest();
         req.header("Authorization", "Bearer " + key);
         req.header("Content-Type", "application/json");
+        req.followRedirects(false);
         req.bodyJSON(body); req.timeout(std::chrono::seconds(45));
         m_busy = true; m_state = ProviderState::Running;
         m_task.spawn("decomind-direct-https", req.post(ProviderManager::endpoint()), [this, done, refs](web::WebResponse response) {
@@ -97,7 +103,7 @@ public:
                     auto content = j.unwrap()["choices"][0]["message"]["content"].asString().unwrapOr("");
                     r.plan = PlanJson::parse(content); r.ok = true;
                     for (auto const& ref : refs) r.plan.references.push_back(ref.id);
-                    r.message = "Plan recibido por HTTPS; pendiente de validacion y preview.";
+                    r.message = r.plan.summary.empty() ? "Plan recibido por HTTPS; pendiente de validacion y preview." : sanitizeForGD(r.plan.summary);
                     m_state = ProviderState::Finished;
                 } catch (...) { m_state = ProviderState::Failed; r.message = "El proveedor devolvio una propuesta invalida o incompleta. No se aplico."; }
             }
