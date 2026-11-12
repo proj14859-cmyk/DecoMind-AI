@@ -1,250 +1,108 @@
 #pragma once
-// ===========================================================================
-// DecoMind AI v0.3.8-alpha - Capa de Comunicacion con el Servidor / Proveedor IA
-//
-// Desacopla la interfaz visual de la red y del proveedor de IA.
-// Construye las peticiones adjuntando internamente:
-//   - El preprompt del modo (CONTEXT)
-//   - El estado real del nivel, camara y objetos seleccionados (SELECTION / VIEWPORT)
-//   - Los Group IDs ocupados y libres (USED_GROUPS / FREE_GROUPS)
-//   - Los Color IDs ocupados y libres (USED_COLORS / FREE_COLORS)
-// ===========================================================================
 #include "LevelExecutor.hpp"
-#include "ObjectCatalog.hpp"
-#include "Modes.hpp"
+#include "editor/EditorPerception.hpp"
+#include "core/PlanJson.hpp"
+#include "providers/ProviderManager.hpp"
+#include "examples/ExampleLibrary.hpp"
 #include <Geode/utils/async.hpp>
 #include <Geode/utils/web.hpp>
 #include <chrono>
 #include <functional>
-#include <string>
-
 namespace decomind {
-
 struct AIResponseData {
     bool ok = false;
     int httpCode = 0;
     std::string message;
-    std::string rawObjects;
-    int usedToday = -1;
-    int dailyLimit = -1;
+    operations::Plan plan;
+    int usedToday = -1, dailyLimit = -1;
     bool isLocalDemo = false;
 };
-
 class AIClient {
+    bool m_busy = false;
+    ProviderState m_state = ProviderState::Ready;
+    async::TaskHolder<web::WebResponse> m_task;
 public:
     using Callback = std::function<void(AIResponseData const&)>;
-
-    bool isBusy() const {
-        return m_busy;
-    }
-
+    ~AIClient() { cancel(); }
+    bool isBusy() const { return m_busy; }
+    ProviderState state() const { return m_state; }
+    void cancel() { m_task.cancel(); m_busy = false; m_state = ProviderState::Canceled; }
     void checkConnection(std::function<void(bool)> callback) {
-        auto req = web::WebRequest();
-        req.timeout(std::chrono::seconds(4));
-        m_statusTask.spawn("decomind-ai-status", req.get(getServerUrl()),
-            [callback](web::WebResponse response) {
-                if (callback) callback(response.ok());
-            });
+        // No unsolicited background network traffic or paid probes.
+        if (callback) callback(m_state == ProviderState::Finished);
     }
-
-    void cancel() {
-        if (m_busy) {
-            m_task.cancel();
-            m_busy = false;
-        }
-    }
-
-    // Dos modos persistentes: "server" (Modo AI) y "local" (Modo local)
-    static std::string getOriginMode() {
-        std::string saved = Mod::get()->getSavedValue<std::string>("origin_mode", "");
-        if (saved == "local") return "local";
-        if (saved == "server" || saved == "ai") return "server";
-        std::string setting = Mod::get()->getSettingValue<std::string>("mode");
-        if (setting == "local") return "local";
-        return "server";
-    }
-
+    // Compatibility adapter for the original UI; ai-mode is the sole source of truth.
+    static std::string getOriginMode() { return ProviderManager::mode() == "offline-rules" ? "local" : "server"; }
     static void setOriginMode(std::string const& m) {
-        std::string norm = (m == "local") ? "local" : "server";
-        Mod::get()->setSavedValue<std::string>("origin_mode", norm);
-        Mod::get()->setSettingValue<std::string>("mode", norm);
+        Mod::get()->setSettingValue<std::string>("ai-mode", m == "local" ? "offline-rules" : "api-personal");
         (void)Mod::get()->saveData();
     }
-
-    static std::string getServerUrl() {
-        std::string saved = trimStr(Mod::get()->getSavedValue<std::string>("server_url", ""));
-        if (!saved.empty()) return saved;
-        std::string setting = trimStr(Mod::get()->getSettingValue<std::string>("server-url"));
-        if (!setting.empty()) return setting;
-        return "http://127.0.0.1:8765/generate";
+    // Kept as API adapters while the existing settings card is migrated to a key field.
+    static std::string getServerUrl() { return ""; }
+    static void setServerUrl(std::string const&) {}
+    static int getLocalSections() { return std::clamp(Mod::get()->getSavedValue<int>("local_sections", 8), 1, 40); }
+    static void setLocalSections(int s) { Mod::get()->setSavedValue("local_sections", std::clamp(s, 1, 40)); }
+    void uploadCatalog(std::function<void(bool, std::string const&)> callback) {
+        if (callback) callback(false, "El catalogo ahora se valida dentro del mod. No se suben datos al antiguo servidor.");
     }
-
-    static void setServerUrl(std::string const& url) {
-        std::string clean = trimStr(url);
-        if (clean.empty()) {
-            clean = "http://127.0.0.1:8765/generate";
-        }
-        Mod::get()->setSavedValue<std::string>("server_url", clean);
-        Mod::get()->setSettingValue<std::string>("server-url", clean);
-        (void)Mod::get()->saveData();
-    }
-
-    static int getLocalSections() {
-        int saved = Mod::get()->getSavedValue<int>("local_sections", 8);
-        return std::clamp(saved, 1, 40);
-    }
-
-    static void setLocalSections(int s) {
-        int clamped = std::clamp(s, 1, 40);
-        Mod::get()->setSavedValue<int>("local_sections", clamped);
-        Mod::get()->setSettingValue<int64_t>("sections", static_cast<int64_t>(clamped));
-        (void)Mod::get()->saveData();
-    }
-
-    void sendRequest(
-        int modeIdx,
-        std::string const& userPrompt,
-        LevelEditorLayer* lel,
-        Callback onComplete
-    ) {
+    void sendRequest(int modeIdx, std::string const& prompt, LevelEditorLayer* editor, Callback done) {
         if (m_busy) return;
-
-        int safeIdx = (modeIdx >= 0 && modeIdx < 9) ? modeIdx : 2;
-        auto const& mode = MODES[safeIdx];
-        std::string origin = getOriginMode();
-
-        // Modo local contextual (funciona sin red leyendo seleccion, grupos y colores del nivel)
-        if (origin == "local") {
-            AIResponseData res;
-            res.ok = true;
-            res.httpCode = 200;
-            res.isLocalDemo = true;
-            int secs = getLocalSections();
-            std::string summaryMsg;
-            res.rawObjects = LevelExecutor::generateContextualLocalObjects(
-                lel, mode.id, userPrompt, secs, summaryMsg
-            );
-            res.message = sanitizeForGD(summaryMsg);
-            if (onComplete) onComplete(res);
-            return;
+        if (!editor || LevelEditorLayer::get() != editor) return;
+        auto context = EditorPerception::capture(editor);
+        auto refs = ExampleLibrary::retrieve(Mod::get()->getResourcesDir() / "examples" / "patterns.jsonc", prompt);
+        auto mode = ProviderManager::mode();
+        if (mode == "offline-rules" || mode == "auto") {
+            AIResponseData r; r.ok = true; r.isLocalDemo = true;
+            if (std::string(MODES[std::clamp(modeIdx, 0, 8)].id) != "ideas") r.plan = ProviderManager::offline(context, prompt);
+            for (auto const& ref : refs) r.plan.references.push_back(ref.id);
+            r.message = mode == "auto" ? "Sin servicio comunitario habilitado: generador por reglas sin conexion." : "Generador por reglas sin conexion (no LLM).";
+            if (done) done(r); return;
         }
-
-        // Modo AI (Servidor HTTP Python / proveedor IA con lectura completa del nivel y seleccion)
-        std::string url = trimStr(getServerUrl());
-        if (url.empty()) {
-            url = "http://127.0.0.1:8765/generate";
-            setServerUrl(url);
+        auto provider = ProviderManager::provider();
+        auto key = ProviderCredentials::get(provider);
+        if (mode == "free" || key.empty()) {
+            AIResponseData r; r.message = mode == "free" ? "No hay un servicio gratuito sin cuenta autorizado. Elige Automatico, Sin conexion o API personal." : "Introduce la clave de sesion en Ajustes. Proveedor y modelo se eligen en los ajustes de Geode.";
+            m_state = ProviderState::Unavailable; if (done) done(r); return;
         }
-
+        int idx = std::clamp(modeIdx, 0, 8);
+        std::string system = std::string("Eres DecoMind. Responde SOLO JSON sin Markdown. Esquema: {\"schemaVersion\":1,\"requestId\":\"unique\",\"operations\":[{\"op\":\"createObject\",\"tempId\":\"unique\",\"objectId\":211,\"position\":{\"x\":0,\"y\":0},\"scale\":1,\"zLayer\":-1}]}. ") +
+            "Solo decoracion IDs 15,16,17,503,504,505. No triggers ni gameplay. Maximo 100 objetos. No grupos ni colores. Escala .1..4. " +
+            "Region: x=" + std::to_string(context.region.minX) + ".." + std::to_string(context.region.maxX) + "; y=" + std::to_string(context.region.minY) + ".." + std::to_string(context.region.maxY) + ". " + MODES[idx].internalPrompt;
+        if (std::string(MODES[idx].id) == "ideas") system += " Modo consultivo: operations debe estar vacio.";
+        // Only the selected/visible geometry is shared, never the full level or history.
+        auto scan = LevelExecutor::scanEditorContext(editor);
+        system += "\nGeometria de referencia: " + LevelExecutor::serializeObjectsBrief(scan.selectedCount ? scan.selectedObjects : scan.viewportObjects, 40);
+        for (auto const& ref : refs) system += "\nReferencia " + ref.id + " (" + ref.source + "): " + ref.pattern;
+        auto messages = matjson::Value::array();
+        messages.push(matjson::makeObject({{"role", "system"}, {"content", system}}));
+        messages.push(matjson::makeObject({{"role", "user"}, {"content", prompt}}));
+        auto body = matjson::makeObject({{"model", ProviderManager::model()}, {"messages", messages}, {"max_tokens", 4096}});
         auto req = web::WebRequest();
-        // Adjuntamos el preprompt del modo + el escaneo en vivo del nivel (seleccion, grupos y colores)
-        std::string editorContextLines = LevelExecutor::buildProtocolContextLines(lel);
-        std::string payload =
-            std::string("MODE:") + mode.id + "\n" +
-            "CONTEXT:" + oneLineStr(mode.internalPrompt) + "\n" +
-            "LEVEL:" + oneLineStr(LevelExecutor::getLevelTitle(lel)) + "\n" +
-            editorContextLines +
-            "PROMPT:" + oneLineStr(sanitizeForGD(userPrompt)) + "\n";
-
-        req.bodyString(payload);
-        req.timeout(std::chrono::seconds(45));
-
-        m_busy = true;
-        m_task.spawn(
-            "decomind-ai-request",
-            req.post(url),
-            [this, onComplete](web::WebResponse webRes) {
-                m_busy = false;
-                AIResponseData out;
-                out.httpCode = webRes.code();
-                if (!webRes.ok()) {
-                    out.ok = false;
-                    out.message = fmt::format(
-                        "No se pudo conectar con el servidor (codigo {}). Verifica que Server/server.py "
-                        "este en ejecucion y que la URL en Ajustes sea correcta.",
-                        webRes.code()
-                    );
-                    if (onComplete) onComplete(out);
-                    return;
-                }
-
-                std::string body = webRes.string().unwrapOr("");
-                out.ok = true;
-                out.message = sanitizeForGD(extractField(body, "MSG"));
-                out.rawObjects = extractField(body, "OBJ");
-
-                std::string usedS = extractField(body, "USED");
-                std::string limitS = extractField(body, "LIMIT");
-                if (!usedS.empty()) out.usedToday = std::atoi(usedS.c_str());
-                if (!limitS.empty()) out.dailyLimit = std::atoi(limitS.c_str());
-
-                if (out.message.empty()) {
-                    out.message = "Respuesta recibida del servidor (sin mensaje de texto).";
-                }
-                if (onComplete) onComplete(out);
+        req.header("Authorization", "Bearer " + key);
+        req.header("Content-Type", "application/json");
+        req.bodyJSON(body); req.timeout(std::chrono::seconds(45));
+        m_busy = true; m_state = ProviderState::Running;
+        m_task.spawn("decomind-direct-https", req.post(ProviderManager::endpoint()), [this, done, refs](web::WebResponse response) {
+            m_busy = false;
+            AIResponseData r; r.httpCode = response.code();
+            if (!response.ok()) {
+                m_state = r.httpCode == 429 ? ProviderState::RateLimited : (r.httpCode == 401 || r.httpCode == 403 ? ProviderState::AuthFailed : ProviderState::Failed);
+                r.message = ProviderManager::errorFor(r.httpCode);
+            } else {
+                try {
+                    auto text = response.string().unwrapOr("");
+                    if (text.size() > 1024 * 1024) throw std::runtime_error("Respuesta demasiado grande.");
+                    auto j = matjson::parse(text);
+                    if (!j) throw std::runtime_error("Respuesta HTTPS invalida.");
+                    auto content = j.unwrap()["choices"][0]["message"]["content"].asString().unwrapOr("");
+                    r.plan = PlanJson::parse(content); r.ok = true;
+                    for (auto const& ref : refs) r.plan.references.push_back(ref.id);
+                    r.message = "Plan recibido por HTTPS; pendiente de validacion y preview.";
+                    m_state = ProviderState::Finished;
+                } catch (...) { m_state = ProviderState::Failed; r.message = "El proveedor devolvio una propuesta invalida o incompleta. No se aplico."; }
             }
-        );
-    }
-
-    // Sube el catalogo de objetos del juego al servidor (POST <servidor>/catalog).
-    // Solo tiene sentido en Modo AI ("server"). El callback recibe (ok, mensaje).
-    void uploadCatalog(std::function<void(bool, std::string const&)> onDone) {
-        if (getOriginMode() != "server") {
-            if (onDone) onDone(false, "El catalogo se sube al servidor: cambia el modo a 'Modo AI' en Ajustes.");
-            return;
-        }
-        std::string url = trimStr(getServerUrl());
-        if (url.empty()) {
-            url = "http://127.0.0.1:8765/generate";
-        }
-        // http://IP:8765/generate  ->  http://IP:8765/catalog
-        size_t g = url.rfind("/generate");
-        url = (g != std::string::npos) ? url.substr(0, g) + "/catalog" : url + "/catalog";
-
-        int count = 0;
-        std::string body = ObjectCatalog::build(count);
-        if (count == 0) {
-            if (onDone) onDone(false, "No se pudo leer el catalogo de objetos del juego.");
-            return;
-        }
-
-        auto req = web::WebRequest();
-        req.bodyString(body);
-        req.timeout(std::chrono::seconds(60));
-        m_catalogTask.spawn(
-            "decomind-catalog-upload",
-            req.post(url),
-            [onDone, count](web::WebResponse webRes) {
-                if (!webRes.ok()) {
-                    if (onDone) onDone(false, fmt::format(
-                        "No se pudo subir el catalogo (codigo {}). Revisa que el servidor este activo.", webRes.code()));
-                    return;
-                }
-                std::string reply = extractField(webRes.string().unwrapOr(""), "MSG");
-                if (onDone) onDone(true, reply.empty() ? fmt::format("Catalogo enviado ({} objetos).", count) : reply);
-            }
-        );
-    }
-
-private:
-    bool m_busy = false;
-    async::TaskHolder<web::WebResponse> m_task;
-    async::TaskHolder<web::WebResponse> m_catalogTask;
-    async::TaskHolder<web::WebResponse> m_statusTask;
-
-    static std::string extractField(std::string const& body, std::string const& key) {
-        std::string prefix = key + ":";
-        size_t pos = 0;
-        while (pos < body.size()) {
-            size_t end = body.find('\n', pos);
-            if (end == std::string::npos) end = body.size();
-            std::string line = body.substr(pos, end - pos);
-            if (!line.empty() && line.back() == '\r') line.pop_back();
-            if (line.rfind(prefix, 0) == 0) return line.substr(prefix.size());
-            pos = end + 1;
-        }
-        return "";
+            if (done) done(r);
+        });
     }
 };
-
-} // namespace decomind
+}

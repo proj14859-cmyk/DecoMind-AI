@@ -9,7 +9,7 @@ else()
     set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
 endif()
 
-project(AIDecorator VERSION 0.3.7)
+project(AIDecorator VERSION 0.4.0)
 
 file(GLOB SOURCES src/*.cpp)
 add_library(${PROJECT_NAME} SHARED ${SOURCES})

@@ -19,6 +19,7 @@
 //      libres automaticamente) y anadir animaciones de entrada y salida.
 // ===========================================================================
 #include "LevelValidator.hpp"
+#include "editor/BackupManager.hpp"
 #include "Modes.hpp"
 #include <Geode/utils/file.hpp>
 #include <algorithm>
@@ -487,19 +488,6 @@ public:
         return d;
     }
 
-    static ValidationResult applyValidatedObjects(
-        LevelEditorLayer* lel,
-        std::string const& rawObjs,
-        std::string const& modeId
-    ) {
-        ValidationResult vr = LevelValidator::validateObjects(rawObjs, modeId);
-        if (!vr.allowed || vr.sanitizedObjects.empty() || !lel) {
-            return vr;
-        }
-        lel->createObjectsFromString(vr.sanitizedObjects, true, true);
-        return vr;
-    }
-
     // Generador local inteligente y sensible al contexto (seleccion, grupos/colores libres y animaciones)
     static std::string generateContextualLocalObjects(
         LevelEditorLayer* lel,
@@ -720,33 +708,7 @@ public:
     }
 
     static bool saveLevelSnapshot(LevelEditorLayer* lel, std::string& outMsg) {
-        if (!lel) {
-            outMsg = "No hay un nivel activo en el editor.";
-            return false;
-        }
-        std::string title = getLevelTitle(lel);
-        int objCount = getCurrentObjectCount(lel);
-        std::time_t now = std::time(nullptr);
-        char timeBuf[32] = {0};
-        if (auto tm = std::localtime(&now)) {
-            std::strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", tm);
-        } else {
-            std::snprintf(timeBuf, sizeof(timeBuf), "%lld", static_cast<long long>(now));
-        }
-
-        std::string fname = fmt::format("snapshot_{}.txt", static_cast<long long>(now));
-        std::string content = fmt::format(
-            "LEVEL:{}\nOBJECTS:{}\nDATE:{}\n",
-            title, objCount, timeBuf
-        );
-
-        auto res = utils::file::writeString(backupsDir() / fname, content);
-        if (!res.isOk()) {
-            outMsg = "No se pudo escribir el registro del nivel en disco.";
-            return false;
-        }
-        outMsg = fmt::format("Registro creado para '{}' ({} objetos). No incluye los objetos para restauracion.", title, objCount);
-        return true;
+        return BackupManager::save(lel, backupsDir(), outMsg);
     }
 
     static std::vector<BackupInfo> listSnapshots() {
@@ -756,15 +718,19 @@ public:
         if (!std::filesystem::exists(dir, ec)) return list;
 
         for (auto const& entry : std::filesystem::directory_iterator(dir, ec)) {
-            if (!entry.is_regular_file()) continue;
+            if (!entry.is_regular_file() || entry.path().extension() != ".json") continue;
             auto r = utils::file::readString(entry.path());
             if (!r.isOk()) continue;
             std::string body = r.unwrap();
             BackupInfo info;
             info.filename = entry.path().filename().string();
-            info.levelName = extractLineValue(body, "LEVEL");
-            info.objectCount = std::atoi(extractLineValue(body, "OBJECTS").c_str());
-            info.dateStr = extractLineValue(body, "DATE");
+            auto parsed = matjson::parse(body);
+            if (!parsed) continue;
+            auto j = parsed.unwrap();
+            if (j["schemaVersion"].asInt().unwrapOr(0) != 1 || j["levelData"].asString().unwrapOr("").empty()) continue;
+            info.levelName = j["levelName"].asString().unwrapOr("");
+            info.objectCount = static_cast<int>(j["objectCount"].asInt().unwrapOr(0));
+            info.dateStr = j["timestamp"].asString().unwrapOr("");
             if (info.levelName.empty()) info.levelName = "Sin titulo";
             list.push_back(info);
         }

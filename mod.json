@@ -1,41 +1,72 @@
 {
-	"geode": "5.11.2",
-	"gd": {
-		"win": "2.2081",
-		"android": "2.2081",
-		"mac": "2.2081",
-		"ios": "2.2081"
-	},
-	"version": "v0.3.8-alpha",
-	"id": "thedaek.decomind-ai",
-	"name": "DecoMind-AI",
-	"developer": "TheDaek",
-	"description": "Asistente de IA interactivo con percepcion de seleccion, grupos, colores, triggers, rueda oficial de color y boton flotante movible para el editor de Geometry Dash",
-	"resources": {
-		"sprites": [
-			"resources/*.png"
-		]
-	},
-	"settings": {
-		"mode": {
-			"type": "string",
-			"name": "Modo de conexion",
-			"description": "server = Modo AI (conecta al servidor HTTP Python/Groq). local = Modo local (genera dentro del mod sin red).",
-			"default": "server",
-			"one-of": ["server", "local"]
-		},
-		"server-url": {
-			"type": "string",
-			"name": "URL del servidor",
-			"description": "Ejemplo Termux: http://127.0.0.1:8765/generate. Otro celular o PC: http://IP:8765/generate",
-			"default": "http://127.0.0.1:8765/generate"
-		},
-		"sections": {
-			"type": "int",
-			"name": "Secciones (Modo local)",
-			"default": 8,
-			"min": 1,
-			"max": 40
-		}
-	}
+  "geode": "5.11.2",
+  "gd": {
+    "win": "2.2081",
+    "android": "2.2081",
+    "mac": "2.2081",
+    "ios": "2.2081"
+  },
+  "version": "v0.4.0-alpha",
+  "id": "thedaek.decomind-ai",
+  "name": "DecoMind-AI",
+  "developer": "TheDaek",
+  "description": "Asistente de IA interactivo con percepcion de seleccion, grupos, colores, triggers, rueda oficial de color y boton flotante movible para el editor de Geometry Dash",
+  "resources": {
+    "sprites": [
+      "resources/*.png"
+    ]
+  },
+  "settings": {
+    "mode": {
+      "type": "string",
+      "name": "Modo de conexion",
+      "description": "Legado v0.3.8: solo se lee una vez para migrar. Usa Modo de IA.",
+      "default": "server",
+      "one-of": [
+        "server",
+        "local"
+      ]
+    },
+    "server-url": {
+      "type": "string",
+      "name": "URL del servidor",
+      "description": "Legado v0.3.8. No se utiliza para solicitudes.",
+      "default": "http://127.0.0.1:8765/generate"
+    },
+    "sections": {
+      "type": "int",
+      "name": "Secciones (Modo local)",
+      "default": 8,
+      "min": 1,
+      "max": 40
+    },
+    "ai-mode": {
+      "type": "string",
+      "name": "Modo de IA",
+      "default": "auto",
+      "one-of": [
+        "auto",
+        "free",
+        "api-personal",
+        "offline-rules"
+      ],
+      "description": "Automatico usa reglas offline mientras no exista un servicio comunitario autorizado. API personal requiere clave de sesion."
+    },
+    "ai-provider": {
+      "type": "string",
+      "name": "Proveedor HTTPS personal",
+      "default": "openai",
+      "one-of": [
+        "openai",
+        "groq"
+      ],
+      "description": "Solo se envia la clave al proveedor seleccionado. No hay cambio automatico a servicios de pago."
+    },
+    "ai-model": {
+      "type": "string",
+      "name": "Modelo del proveedor",
+      "default": "gpt-4.1-mini",
+      "description": "Identificador admitido por tu proveedor. Groq: por ejemplo llama-3.3-70b-versatile. La API personal puede tener coste."
+    }
+  }
 }
