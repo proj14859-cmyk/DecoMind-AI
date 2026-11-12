@@ -17,6 +17,8 @@ int main(int argc, char** argv) {
     require(ProviderConfig::model("groq", "user-selected-model") == "user-selected-model");
     require(ProviderConfig::model("openai", "") == "gpt-4.1-mini");
     require(ProviderConfig::baseUrl("groq") == "https://api.groq.com/openai/v1");
+    require(ProviderConfig::providerForKey("openai", "gsk_example") == "groq");
+    require(ProviderConfig::providerForKey("openai", "sk-example") == "openai");
     operations::Context c;
     for (auto const& mode : {"auto", "offline-rules"}) {
         for (auto const& prompt : {"deco moderna de una estructura", "espacial brillante en zona seleccionada", "Nine Circles glow con ruta de wave clara"}) {

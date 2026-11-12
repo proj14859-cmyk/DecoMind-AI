@@ -25,6 +25,19 @@ class AIClient {
     ProviderState m_state = ProviderState::Ready;
     async::TaskHolder<web::WebResponse> m_task;
     async::TaskHolder<web::WebResponse> m_probeTask;
+    static std::string responseError(web::WebResponse& response) {
+        auto base = ProviderManager::errorFor(response.code());
+        auto body = response.string().unwrapOr("");
+        if (body.size() > 64 * 1024) body.resize(64 * 1024);
+        auto parsed = matjson::parse(body);
+        if (!parsed) return base + " (HTTP " + std::to_string(response.code()) + ")";
+        auto detail = parsed.unwrap()["error"]["message"].asString().unwrapOr("");
+        detail = sanitizeForGD(detail);
+        detail.erase(std::remove(detail.begin(), detail.end(), '\n'), detail.end());
+        if (detail.size() > 240) detail.resize(240);
+        if (detail.empty()) return base + " (HTTP " + std::to_string(response.code()) + ")";
+        return base + " HTTP " + std::to_string(response.code()) + ": " + detail;
+    }
 public:
     using Callback = std::function<void(AIResponseData const&)>;
     ~AIClient() { cancel(); }
@@ -50,7 +63,7 @@ public:
                 m_testing = false;
                 bool ok = false;
                 std::string message;
-                if (!response.ok()) message = ProviderManager::errorFor(response.code());
+                if (!response.ok()) message = responseError(response);
                 else {
                     auto text = response.string().unwrapOr("");
                     if (text.size() > 2 * 1024 * 1024) message = "Lista de modelos demasiado grande.";
@@ -141,7 +154,7 @@ public:
             AIResponseData r; r.httpCode = response.code();
             if (!response.ok()) {
                 m_state = r.httpCode == 429 ? ProviderState::RateLimited : (r.httpCode == 401 || r.httpCode == 403 ? ProviderState::AuthFailed : ProviderState::Failed);
-                r.message = ProviderManager::errorFor(r.httpCode);
+                r.message = responseError(response);
             } else {
                 try {
                     auto text = response.string().unwrapOr("");

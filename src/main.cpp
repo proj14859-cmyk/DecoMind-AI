@@ -2705,11 +2705,19 @@ protected:
         auto saveUrlSpr = ui::makeCustomMenuBtn("GUARDAR", ps(158.f), ps(46.f), pal.accent, pal.accent, 0.23f, true, ps(12.f));
         auto saveUrlBtn = CCMenuItemExt::createSpriteExtra(saveUrlSpr, [this](CCMenuItemSpriteExtra*) {
             std::string val = m_serverUrlInput ? trimStr(std::string(m_serverUrlInput->getString().c_str())) : "";
-            ProviderCredentials::set(ProviderManager::provider(), val);
+            auto provider = ProviderConfig::providerForKey(ProviderManager::provider(), val);
+            if (provider != ProviderManager::provider()) {
+                Mod::get()->setSettingValue<std::string>("ai-provider", provider);
+                (void)Mod::get()->saveData();
+            }
+            ProviderCredentials::set(provider, val);
             if (!val.empty()) AIClient::setOriginMode("server");
             if (m_serverUrlInput) m_serverUrlInput->setString("");
             if (m_settingsStatusLbl) {
-                fitBMFontLabel(m_settingsStatusLbl, val.empty() ? "Clave borrada." : "Clave de sesion lista. Solo se enviara al proveedor elegido.", ps(760.f), 0.42f);
+                auto status = val.empty()
+                    ? "Clave borrada."
+                    : "Clave lista para " + provider + ". Modelo: " + ProviderManager::model() + ". Pulsa PROBAR.";
+                fitBMFontLabel(m_settingsStatusLbl, status, ps(760.f), 0.42f);
             }
 
         });

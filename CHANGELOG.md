@@ -6,6 +6,8 @@
 - Botón PROBAR para autenticar y comprobar modelo sin enviar datos del nivel.
 - GUARDAR clave activa API personal; credencial solo de sesión y campo enmascarado.
 - Respuestas JSON solicitadas al proveedor. Catálogo completo y aceptación en juego pendientes.
+- Corrección de conexión: las claves `gsk_` seleccionan Groq automáticamente y los fallos muestran código HTTP y mensaje seguro de la API.
+- El estado de guardado informa del proveedor/modelo efectivos; el modo gratuito se identifica como no disponible mientras no exista un backend.
 
 # v0.4.0-alpha — integración experimental
 
