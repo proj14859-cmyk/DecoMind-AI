@@ -16,7 +16,7 @@ La workflow compila Windows, Android32 y Android64 y ejecuta estas pruebas en PR
 
 Commit 1e908b023a74019e03eadb8f671bcf1fa0a45724: [CI 43312110034](https://github.com/proj14859-cmyk/DecoMind-AI/actions/runs/43312110034) pasó core-tests, Windows, Android32, Android64 y empaquetado. Cambios posteriores requieren su propia ejecución de CI. Este resultado solo acredita compilación/pruebas automatizadas.
 
-## En dispositivo GD 2.2081 + Geode 5.11.2
+## En dispositivo GD 2.2091 + Geode 6.0.0-alpha.1 (v0.4.1-alpha)
 
 Todo este bloque requiere ejecución humana y permanece pendiente hasta registrar evidencia:
 

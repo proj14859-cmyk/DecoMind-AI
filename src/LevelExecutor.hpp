@@ -21,7 +21,7 @@
 #include "LevelValidator.hpp"
 #include "editor/BackupManager.hpp"
 #include "Modes.hpp"
-#include <Geode/utils/file.hpp>
+#include "core/FileIO.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -701,7 +701,7 @@ public:
 
     // Gestion de respaldos / puntos de guardado locales
     static std::filesystem::path backupsDir() {
-        auto dir = Mod::get()->getSaveDir() / "backups";
+        auto dir = Mod::get()->getSaveDir().toStdPath() / "backups";
         std::error_code ec;
         std::filesystem::create_directories(dir, ec);
         return dir;
@@ -719,7 +719,7 @@ public:
 
         for (auto const& entry : std::filesystem::directory_iterator(dir, ec)) {
             if (!entry.is_regular_file() || entry.path().extension() != ".json") continue;
-            auto r = utils::file::readString(entry.path());
+            auto r = FileIO::readString(entry.path());
             if (!r.isOk()) continue;
             std::string body = r.unwrap();
             BackupInfo info;

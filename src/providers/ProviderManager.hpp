@@ -1,6 +1,7 @@
 #pragma once
 #include <Geode/Geode.hpp>
 #include "ProviderCredentials.hpp"
+#include "ProviderConfig.hpp"
 #include "../core/OperationSchema.hpp"
 namespace decomind {
 enum class ProviderState { Ready, Connecting, Running, RateLimited, Unavailable, AuthFailed, Canceled, Finished, Failed };
@@ -20,10 +21,9 @@ public:
     }
     static std::string mode() { migrate(); return geode::Mod::get()->getSettingValue<std::string>("ai-mode"); }
     static std::string provider() { return geode::Mod::get()->getSettingValue<std::string>("ai-provider"); }
-    static std::string endpoint() {
-        return provider() == "groq" ? "https://api.groq.com/openai/v1/chat/completions" : "https://api.openai.com/v1/chat/completions";
-    }
-    static std::string model() { return geode::Mod::get()->getSettingValue<std::string>("ai-model"); }
+    static std::string endpoint() { return ProviderConfig::baseUrl(provider()) + "/chat/completions"; }
+    static std::string modelsEndpoint() { return ProviderConfig::baseUrl(provider()) + "/models"; }
+    static std::string model() { return ProviderConfig::model(provider(), geode::Mod::get()->getSettingValue<std::string>("ai-model")); }
     static std::string errorFor(int code) {
         if (code == 401 || code == 403) return "Credencial rechazada. Introduce o borra la clave en Ajustes.";
         if (code == 429) return "Proveedor ocupado o cuota agotada. No se cambio de proveedor.";

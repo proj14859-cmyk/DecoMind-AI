@@ -1141,7 +1141,7 @@ protected:
         mascotBtn->setPosition({px(768.f), py(64.f)});
         m_fixedMenu->addChild(mascotBtn);
 
-        // Pildora de estado de conexion (derecha) + Pildora de version ("v0.4.0 a")
+        // Pildora de estado de conexion (derecha) + Pildora de version ("v0.4.1 a")
         m_connPillDn = CCDrawNode::create();
         m_mainLayer->addChild(m_connPillDn, 14);
 
@@ -1159,7 +1159,7 @@ protected:
             1426.f, 47.f, 82.f, 38.f, 12.f,
             pal.card, 0.98f, pal.line, 0.90f, 1.2f, 14
         );
-        if (auto verLbl = ui::createStyledLabel("v0.4.0 a", false, 0.40f, pal.text2, ps(74.f))) {
+        if (auto verLbl = ui::createStyledLabel("v0.4.1 a", false, 0.40f, pal.text2, ps(74.f))) {
             verLbl->setPosition({px(1467.f), py(66.f)});
             m_mainLayer->addChild(verLbl, 15);
         }
@@ -2706,6 +2706,7 @@ protected:
         auto saveUrlBtn = CCMenuItemExt::createSpriteExtra(saveUrlSpr, [this](CCMenuItemSpriteExtra*) {
             std::string val = m_serverUrlInput ? trimStr(std::string(m_serverUrlInput->getString().c_str())) : "";
             ProviderCredentials::set(ProviderManager::provider(), val);
+            if (!val.empty()) AIClient::setOriginMode("server");
             if (m_serverUrlInput) m_serverUrlInput->setString("");
             if (m_settingsStatusLbl) {
                 fitBMFontLabel(m_settingsStatusLbl, val.empty() ? "Clave borrada." : "Clave de sesion lista. Solo se enviara al proveedor elegido.", ps(760.f), 0.42f);
@@ -2715,6 +2716,18 @@ protected:
         saveUrlBtn->m_scaleMultiplier = 1.03f;
         saveUrlBtn->setPosition({ps(711.f), yFromTop(191.f)});
         sMenu->addChild(saveUrlBtn);
+
+        auto probeSpr = ui::makeCustomMenuBtn("PROBAR", ps(158.f), ps(32.f), pal.card, pal.accent, 0.22f, false, ps(8.f));
+        auto probeBtn = CCMenuItemExt::createSpriteExtra(probeSpr, [this](CCMenuItemSpriteExtra*) {
+            if (m_settingsStatusLbl) fitBMFontLabel(m_settingsStatusLbl, "Comprobando clave y modelo por HTTPS...", ps(760.f), .42f);
+            m_aiClient.testProvider([this](bool ok, std::string const& message) {
+                m_serverReachable = ok; m_serverChecked = true;
+                refreshHeaderStatusPill();
+                if (m_settingsStatusLbl) fitBMFontLabel(m_settingsStatusLbl, message, ps(760.f), .42f);
+            });
+        });
+        probeBtn->setPosition({ps(711.f), yFromTop(140.f)});
+        sMenu->addChild(probeBtn);
 
         // --- TARJETA 3: Color del menu ("Todo el menu se recolorea con una paleta de ese tono") (yTop=248, h=154) ---
         drawSettingCard(248.f, 154.f);

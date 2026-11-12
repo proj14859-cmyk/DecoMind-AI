@@ -1,3 +1,12 @@
+# v0.4.1-alpha — Geode 6 y Groq
+
+- Objetivo Geode 6.0.0-alpha.1 / Geometry Dash 2.2091; SDK de CI fijado.
+- Puente de rutas asp::fs y dependencias de pruebas alineadas con SDK 6.
+- Modelo automático de Groq y conservación de modelos personalizados.
+- Botón PROBAR para autenticar y comprobar modelo sin enviar datos del nivel.
+- GUARDAR clave activa API personal; credencial solo de sesión y campo enmascarado.
+- Respuestas JSON solicitadas al proveedor. Catálogo completo y aceptación en juego pendientes.
+
 # v0.4.0-alpha — integración experimental
 
 - Contrato tipado y validador determinista; catálogo reducido con confianza explícita.

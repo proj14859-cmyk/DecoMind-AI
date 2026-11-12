@@ -7,7 +7,7 @@
 // guardado del mod en Geode.
 // ===========================================================================
 #include "Modes.hpp"
-#include <Geode/utils/file.hpp>
+#include "core/FileIO.hpp"
 #include <ctime>
 #include <filesystem>
 #include <string>
@@ -40,12 +40,12 @@ public:
         return messages;
     }
     static std::filesystem::path chatPath() {
-        return Mod::get()->getSaveDir() / "conversacion.txt";
+        return Mod::get()->getSaveDir().toStdPath() / "conversacion.txt";
     }
     static void loadChat() {
         auto& messages = chatMessages();
         messages.clear();
-        auto res = utils::file::readString(chatPath());
+        auto res = FileIO::readString(chatPath());
         if (!res.isOk()) return;
         std::string data = res.unwrap();
         size_t pos = 0;
@@ -69,7 +69,7 @@ public:
         std::string out;
         for (auto const& m : messages) out += std::string(m.fromUser ? "U\t" : "A\t") +
             std::to_string(static_cast<long long>(m.timestamp)) + "\t" + oneLineStr(m.text) + "\n";
-        (void)utils::file::writeString(chatPath(), out);
+        (void)FileIO::writeString(chatPath(), out);
     }
     static std::vector<HistoryEntry>& entries() {
         static std::vector<HistoryEntry> list;
@@ -82,15 +82,15 @@ public:
     }
 
     static std::filesystem::path historyPath() {
-        return Mod::get()->getSaveDir() / "historial.txt";
+        return Mod::get()->getSaveDir().toStdPath() / "historial.txt";
     }
 
     static std::filesystem::path favoritesPath() {
-        return Mod::get()->getSaveDir() / "favoritos.txt";
+        return Mod::get()->getSaveDir().toStdPath() / "favoritos.txt";
     }
 
     static std::filesystem::path phrasesPath() {
-        return Mod::get()->getSaveDir() / "frases.txt";
+        return Mod::get()->getSaveDir().toStdPath() / "frases.txt";
     }
 
     static void ensureLoaded() {
@@ -104,7 +104,7 @@ public:
 
     static void loadHistoryFromDisk() {
         entries().clear();
-        auto res = utils::file::readString(historyPath());
+        auto res = FileIO::readString(historyPath());
         if (!res.isOk()) return;
         std::string text = res.unwrap();
 
@@ -158,7 +158,7 @@ public:
                     std::to_string(static_cast<long long>(e.timestamp)) + "\t" +
                     oneLineStr(e.summary) + "\n";
         }
-        (void)utils::file::writeString(historyPath(), out);
+        (void)FileIO::writeString(historyPath(), out);
     }
 
     static void addEntry(std::string const& modeId, std::string const& prompt) {
@@ -196,7 +196,7 @@ public:
     // Favoritos
     static void loadFavoritesFromDisk() {
         favorites().clear();
-        auto res = utils::file::readString(favoritesPath());
+        auto res = FileIO::readString(favoritesPath());
         if (!res.isOk()) {
             // Inicializa favoritos utiles por defecto en la primera ejecucion
             favorites() = {
@@ -226,7 +226,7 @@ public:
         for (auto const& f : favorites()) {
             out += f.modeId + "\t" + oneLineStr(f.prompt) + "\n";
         }
-        (void)utils::file::writeString(favoritesPath(), out);
+        (void)FileIO::writeString(favoritesPath(), out);
     }
 
     static void addFavorite(std::string const& modeId, std::string const& prompt) {
@@ -272,10 +272,10 @@ public:
                 "# Frases del aliado de DecoMind AI. Una por linea.\n"
                 "# Las lineas que empiezan con # se ignoran.\n";
             for (auto const& p : defaultPhrases()) def += p + "\n";
-            (void)utils::file::writeString(path, def);
+            (void)FileIO::writeString(path, def);
         }
 
-        auto res = utils::file::readString(path);
+        auto res = FileIO::readString(path);
         if (res.isOk()) {
             std::string text = res.unwrap();
             size_t pos = 0;
