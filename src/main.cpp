@@ -36,6 +36,7 @@
 #include <Geode/ui/TextInput.hpp>
 
 #include "AIClient.hpp"
+#include "editor/PreviewManager.hpp"
 #include "EditorButton.hpp"
 #include "HistoryManager.hpp"
 #include "LevelExecutor.hpp"
@@ -562,7 +563,7 @@ protected:
         m_mainLayer->addChild(m_scroll, 5);
         m_modalScroll = m_scroll;
 
-        auto snapSpr = this->makeStyledActionBtn("Registrar estado actual", 196.f, 22.f, pal.accent, pal.accent, true);
+        auto snapSpr = this->makeStyledActionBtn("Respaldar nivel actual", 196.f, 22.f, pal.accent, pal.accent, true);
         auto snapBtn = CCMenuItemExt::createSpriteExtra(snapSpr, [this](CCMenuItemSpriteExtra*) {
             std::string msg;
             LevelExecutor::saveLevelSnapshot(m_lel, msg);
@@ -625,6 +626,14 @@ protected:
                 node->addChild(l2, 2);
             }
 
+            auto actions = CCMenu::create(); actions->setPosition({0.f, 0.f});
+            auto spr = this->makeStyledActionBtn("RECUPERAR COPIA", 90.f, 22.f, pal.card, pal.accent, false);
+            auto recover = CCMenuItemExt::createSpriteExtra(spr, [this, name = s.filename](CCMenuItemSpriteExtra*) {
+                std::string msg;
+                bool ok = BackupManager::restoreCopy(LevelExecutor::backupsDir() / name, msg);
+                FLAlertLayer::create(ok ? "Copia recuperada" : "Aviso", msg, "OK")->show();
+            });
+            recover->setPosition({244.f, 17.f}); actions->addChild(recover); node->addChild(actions, 3);
             layer->addChild(node);
         }
         m_scroll->scrollToTop();
@@ -778,6 +787,18 @@ class DecoMindPopup : public Popup, public cocos2d::extension::ColorPickerDelega
 protected:
     Ref<LevelEditorLayer> m_lel;
     AIClient m_aiClient;
+    PreviewManager m_preview;
+    Ref<UndoObject> m_lastAiUndo;
+    operations::Context m_requestContext;
+    Ref<GJGameLevel> m_requestLevel;
+    std::string m_requestBaseline;
+    bool m_previewAnnounced = false;
+    CCMenu* m_inspectionMenu = nullptr;
+    GLubyte m_previousOpacity = 0;
+    std::vector<std::string> m_pendingReferences;
+    std::string m_pendingPrompt;
+    int m_pendingMode = 0;
+
 
     int m_selectedMode = 0; // 0=Estructurar por defecto (como en Pagina 1 del PDF)
     int m_activePage = 0;   // 0=INICIO, 1=INFORMACION, 2=CHAT, 3=ESTADISTICAS, 4=AJUSTES
@@ -960,6 +981,9 @@ protected:
             m_savedSettingsScrollY = m_settingsScroll->m_contentLayer->getPositionY();
         }
 
+        m_aiClient.cancel();
+        leaveInspection();
+        m_preview.reject();
         m_promptFieldDelegate.unbind();
         m_mainLayer->removeAllChildren();
 
@@ -1162,7 +1186,7 @@ protected:
         if (m_connPillLbl) {
             fitBMFontLabel(
                 m_connPillLbl,
-                isLocal ? "Modo local activo" : (!m_serverChecked ? "Comprobando servidor" : (m_serverReachable ? "Servidor conectado" : "Servidor sin conexion")),
+                isLocal ? "Sin conexion: reglas" : (!m_serverChecked ? "IA lista para configurar" : (m_serverReachable ? "Proveedor conectado" : "Proveedor no disponible")),
                 ps(184.f), 0.41f
             );
             m_connPillLbl->setColor(pal.text2);
@@ -1890,7 +1914,8 @@ protected:
                 return;
             }
             if (auto ui = EditorUI::get()) {
-                ui->undoLastAction(nullptr);
+                if (m_lel && m_lel->m_undoObjects && m_lel->m_undoObjects->count() && m_lel->m_undoObjects->lastObject() == m_lastAiUndo.data()) ui->undoLastAction(nullptr);
+                else { this->updateChatStatusText("AVISO", COL_STATUS_AMBER, "Hay acciones posteriores. Usa Deshacer en el editor para conservar su orden."); return; }
                 m_canUndoAiAction = false;
                 this->updateChatStatusText("DESHECHO", COL_STATUS_AMBER, "Se deshizo la ultima accion en el editor.");
             }
@@ -2559,7 +2584,7 @@ protected:
                 tl->setPosition({px(1364.f), py(ry)});
                 m_statsContentHolder->addChild(tl, 4);
             }
-            if (auto info = ui::createStyledLabel("REGISTRO", false, .34f, pal.text3, ps(102.f))) {
+            if (auto info = ui::createStyledLabel("RESPALDO", false, .34f, pal.text3, ps(102.f))) {
                 info->setPosition({px(1434.f), py(ry)});
                 m_statsContentHolder->addChild(info, 4);
             }
@@ -2614,7 +2639,7 @@ protected:
             t1->setPosition({ps(24.f), yFromTop(34.f)});
             content->addChild(t1, 5);
         }
-        if (auto d1 = ui::createStyledLabel("Modo local usa el generador contextual; Modo AI usa tu servidor HTTP.", false, 0.39f, pal.text3, ps(500.f))) {
+        if (auto d1 = ui::createStyledLabel("Sin conexion: reglas. API personal: HTTPS directo, sin Termux.", false, 0.39f, pal.text3, ps(500.f))) {
             d1->setAnchorPoint({0.f, 0.5f});
             d1->setPosition({ps(24.f), yFromTop(66.f)});
             content->addChild(d1, 5);
@@ -2627,7 +2652,7 @@ protected:
             rgba4F(pal.bgOuter, 0.98f), ps(1.1f), rgba4F(pal.line, 0.9f)
         );
         auto locBtnSpr = ui::makeCustomMenuBtn(
-            "Modo local", ps(116.f), ps(42.f),
+            "Sin conexion", ps(116.f), ps(42.f),
             isLocal ? pal.accent : pal.bgOuter,
             isLocal ? pal.accent : pal.bgOuter,
             0.22f, isLocal, ps(10.f)
@@ -2641,7 +2666,7 @@ protected:
         sMenu->addChild(locBtn);
 
         auto aiBtnSpr = ui::makeCustomMenuBtn(
-            "Modo AI", ps(120.f), ps(42.f),
+            "API personal", ps(120.f), ps(42.f),
             !isLocal ? pal.accent : pal.bgOuter,
             !isLocal ? pal.accent : pal.bgOuter,
             0.22f, !isLocal, ps(10.f)
@@ -2656,7 +2681,7 @@ protected:
 
         // --- TARJETA 2: Direccion del servidor (yTop=110, h=124) ---
         drawSettingCard(110.f, 124.f);
-        if (auto t2 = ui::createStyledLabel("Direccion del servidor", true, 0.25f, pal.text, ps(420.f))) {
+        if (auto t2 = ui::createStyledLabel("Clave API (solo sesion; proveedor/modelo en Geode)", true, 0.25f, pal.text, ps(420.f))) {
             t2->setAnchorPoint({0.f, 0.5f});
             t2->setPosition({ps(24.f), yFromTop(140.f)});
             content->addChild(t2, 5);
@@ -2666,33 +2691,26 @@ protected:
             sDn, ps(24.f), yFromTop(214.f), ps(592.f), ps(46.f), ps(12.f),
             rgba4F(pal.bgOuter, 0.99f), ps(1.2f), rgba4F(pal.line, 0.92f)
         );
-        m_serverUrlInput = TextInput::create(ps(564.f) / 0.74f, "http://127.0.0.1:8765/generate", "chatFont.fnt");
-        m_serverUrlInput->setFilter("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/.:-_");
-        m_serverUrlInput->setMaxCharCount(96);
+        m_serverUrlInput = TextInput::create(ps(564.f) / 0.74f, "Clave de sesion (vacio para borrar)", "chatFont.fnt");
+        m_serverUrlInput->setPasswordMode(true);
+        m_serverUrlInput->setMaxCharCount(512);
         m_serverUrlInput->setScale(0.74f);
         if (m_serverUrlInput->getBGSprite()) {
             m_serverUrlInput->getBGSprite()->setOpacity(0);
             m_serverUrlInput->getBGSprite()->setVisible(false);
         }
-        m_serverUrlInput->setString(AIClient::getServerUrl());
-        m_serverUrlInput->setCallback([](std::string const& str) {
-            std::string clean = trimStr(str);
-            if (!clean.empty()) AIClient::setServerUrl(clean);
-        });
         m_serverUrlInput->setPosition({ps(320.f), yFromTop(191.f)});
         content->addChild(m_serverUrlInput, 12);
 
         auto saveUrlSpr = ui::makeCustomMenuBtn("GUARDAR", ps(158.f), ps(46.f), pal.accent, pal.accent, 0.23f, true, ps(12.f));
         auto saveUrlBtn = CCMenuItemExt::createSpriteExtra(saveUrlSpr, [this](CCMenuItemSpriteExtra*) {
             std::string val = m_serverUrlInput ? trimStr(std::string(m_serverUrlInput->getString().c_str())) : "";
-            if (val.empty()) {
-                val = "http://127.0.0.1:8765/generate";
-                if (m_serverUrlInput) m_serverUrlInput->setString(val);
-            }
-            AIClient::setServerUrl(val);
+            ProviderCredentials::set(ProviderManager::provider(), val);
+            if (m_serverUrlInput) m_serverUrlInput->setString("");
             if (m_settingsStatusLbl) {
-                fitBMFontLabel(m_settingsStatusLbl, "Direccion guardada: " + val, ps(760.f), 0.42f);
+                fitBMFontLabel(m_settingsStatusLbl, val.empty() ? "Clave borrada." : "Clave de sesion lista. Solo se enviara al proveedor elegido.", ps(760.f), 0.42f);
             }
+
         });
         saveUrlBtn->m_scaleMultiplier = 1.03f;
         saveUrlBtn->setPosition({ps(711.f), yFromTop(191.f)});
@@ -3425,6 +3443,7 @@ protected:
     }
 
     bool ccTouchBegan(CCTouch* t, CCEvent* e) override {
+        if (m_inspectionMenu) return Popup::ccTouchBegan(t, e);
         if (!t || this->hasChildModalOpen() || m_fontLoadingOverlay != nullptr) {
             return true;
         }
@@ -3950,15 +3969,58 @@ protected:
         }
     }
 
+    void leaveInspection() {
+        if (!m_inspectionMenu) return;
+        m_inspectionMenu->removeFromParent(); m_inspectionMenu = nullptr;
+        m_mainLayer->setVisible(true); this->setOpacity(m_previousOpacity);
+    }
+    void inspectPreview() {
+        if (m_inspectionMenu) return;
+        m_previousOpacity = this->getOpacity(); this->setOpacity(0);
+        m_mainLayer->setVisible(false);
+        auto win = CCDirector::get()->getWinSize();
+        auto pal = ThemeConfig::getPalette();
+        m_inspectionMenu = CCMenu::create(); m_inspectionMenu->setPosition({0.f, 0.f});
+        this->addChild(m_inspectionMenu, 200);
+        char const* labels[] = {"ACEPTAR", "RECHAZAR", "EDITAR"};
+        for (int i = 0; i < 3; ++i) {
+            auto spr = ui::makeCustomMenuBtn(labels[i], 100.f, 28.f, pal.card, pal.accent, .25f, false, 6.f);
+            auto btn = CCMenuItemExt::createSpriteExtra(spr, [this, i](CCMenuItemSpriteExtra*) {
+                leaveInspection();
+                if (i == 0) acceptPreview();
+                else if (i == 1) rejectPreview();
+                else { rejectPreview(); setPromptText(m_pendingPrompt); showPage(2); }
+            });
+            btn->setPosition({win.width * .5f + (i - 1) * 110.f, 25.f});
+            m_inspectionMenu->addChild(btn);
+        }
+    }
+    void acceptPreview() {
+        int count = static_cast<int>(m_preview.count());
+        if (!m_preview.accept()) { updateChatStatusText("AVISO", COL_STATUS_AMBER, "Espera a que termine el preview en el mismo editor."); return; }
+        m_canUndoAiAction = true;
+        if (m_lel->m_undoObjects && m_lel->m_undoObjects->count()) m_lastAiUndo = static_cast<UndoObject*>(m_lel->m_undoObjects->lastObject());
+        m_sessionPlacedObjects += count;
+        HistoryManager::addEntry(MODES[m_pendingMode].id, m_pendingPrompt);
+        std::string provenance = "Referencias:";
+        for (auto const& ref : m_pendingReferences) provenance += " " + ref;
+        HistoryManager::addChatMessage(false, provenance);
+        refreshHistoryMiniPanel();
+        updateChatStatusText("ACEPTADO", COL_STATUS_GREEN, fmt::format("{} objetos aceptados. Deshacer disponible en el editor.", count));
+    }
+    void rejectPreview() {
+        leaveInspection();
+        m_preview.reject();
+        updateChatStatusText("RECHAZADO", COL_STATUS_AMBER, "Propuesta retirada. Los objetos originales se conservaron.");
+    }
+    void onClose(CCObject* sender) override {
+        m_aiClient.cancel(); m_preview.reject();
+        Popup::onClose(sender);
+    }
     void onSendCommand() {
         if (m_aiClient.isBusy()) {
             this->showPage(2);
             return;
-        }
-
-        if (m_serverUrlInput) {
-            std::string liveUrl = trimStr(std::string(m_serverUrlInput->getString().c_str()));
-            if (!liveUrl.empty()) AIClient::setServerUrl(liveUrl);
         }
 
         std::string prompt = m_promptInput ? trimStr(sanitizeForGD(std::string(m_promptInput->getString().c_str()))) : "";
@@ -3972,6 +4034,13 @@ protected:
             return;
         }
 
+        if (prompt == "/aceptar") { acceptPreview(); setPromptText(""); return; }
+        if (prompt == "/rechazar") { rejectPreview(); setPromptText(""); return; }
+        if (prompt.rfind("/editar ", 0) == 0) { rejectPreview(); prompt = prompt.substr(8); }
+        if (m_preview.active()) {
+            updateChatStatusText("AVISO", COL_STATUS_AMBER, "Acepta o rechaza la propuesta anterior: /aceptar, /rechazar o /editar instruccion.");
+            return;
+        }
         m_lastUserBubbleText = prompt;
         HistoryManager::addChatMessage(true, prompt);
         this->refreshConversation();
@@ -4007,6 +4076,11 @@ protected:
             fmt::format("Procesando en modo {}: \"{}\"...", MODES[modeToUse].name, prompt)
         );
 
+        if (!m_lel || LevelEditorLayer::get() != m_lel.data()) return;
+        m_requestContext = EditorPerception::capture(m_lel);
+        m_requestLevel = m_lel->m_level;
+        m_requestBaseline = m_lel->getLevelString();
+        m_pendingPrompt = prompt; m_pendingMode = modeToUse;
         m_aiClient.sendRequest(
             modeToUse,
             prompt,
@@ -4021,8 +4095,7 @@ protected:
                     return;
                 }
 
-                HistoryManager::addEntry(MODES[modeToUse].id, m_lastUserBubbleText);
-                this->refreshHistoryMiniPanel();
+
                 ++m_sessionRequests;
                 Mod::get()->setSavedValue<int>("total", Mod::get()->getSavedValue<int>("total", 0) + 1);
 
@@ -4034,20 +4107,17 @@ protected:
                 }
 
                 std::string finalMsg = res.message;
-                if (!res.rawObjects.empty()) {
-                    ValidationResult vr = LevelExecutor::applyValidatedObjects(
-                        m_lel, res.rawObjects, MODES[modeToUse].id
-                    );
-                    if (vr.allowed && vr.validCount > 0) {
-                        m_canUndoAiAction = true;
-                        m_sessionPlacedObjects += vr.validCount;
-                        m_lastSummaryPill1 = fmt::format("{} objetos", vr.validCount);
-                        m_lastSummaryPill2 = std::string("Modo ") + MODES[modeToUse].name;
-                        if (m_chatPillLbls[0]) fitBMFontLabel(m_chatPillLbls[0], m_lastSummaryPill1, ps(112.f), 0.37f);
-                        if (m_chatPillLbls[1]) fitBMFontLabel(m_chatPillLbls[1], m_lastSummaryPill2, ps(118.f), 0.37f);
-                        finalMsg += fmt::format(" [{} objetos colocados].", vr.validCount);
-                    } else if (!vr.note.empty()) {
-                        finalMsg += " [" + vr.note + "]";
+                if (!m_lel || LevelEditorLayer::get() != m_lel.data() || m_lel->m_level != m_requestLevel.data() || std::string(m_lel->getLevelString()) != m_requestBaseline) {
+                    this->updateChatStatusText("CANCELADO", COL_STATUS_AMBER, "El nivel cambio durante la solicitud. Genera una nueva propuesta.");
+                    return;
+                }
+                if (!res.plan.objects.empty()) {
+                    if (std::string(MODES[modeToUse].id) == "ideas") {
+                        finalMsg = "El modo Ideas no puede crear objetos.";
+                    } else if (m_preview.begin(m_lel, res.plan, m_requestContext, finalMsg)) {
+                        m_previewAnnounced = false;
+                        m_pendingReferences = res.plan.references;
+                        finalMsg += " El respaldo original se guardo antes de colocar.";
                     }
                 }
 
@@ -4062,6 +4132,14 @@ protected:
 
     // Bucle de animacion: Flujo RGB en tarjeta seleccionada, picos y robot, mas transicion de carga de fuente
     void tick(float dt) {
+        if (m_preview.active()) {
+            if (!m_preview.tick()) { leaveInspection(); updateChatStatusText("CANCELADO", COL_STATUS_AMBER, "Se retiro la propuesta por un fallo de colocacion o cambio de editor."); }
+            else if (m_preview.ready() && !m_previewAnnounced) {
+                m_previewAnnounced = true;
+                inspectPreview();
+                updateChatStatusText("PREVIEW", COL_STATUS_AMBER, fmt::format("{} objetos temporales. /aceptar, /rechazar o /editar instruccion.", m_preview.count()));
+            }
+        }
         if (m_pendingRebuild) {
             m_pendingRebuild = false;
             this->rebuildAllUIContent();
@@ -4158,6 +4236,8 @@ protected:
 
 public:
     ~DecoMindPopup() override {
+        m_aiClient.cancel();
+        m_preview.reject();
         m_promptFieldDelegate.unbind();
     }
 

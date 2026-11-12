@@ -4,9 +4,17 @@ name: Build Geode mod
 on:
   workflow_dispatch:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "feature/editorai-hybrid-v040" ]
+  pull_request:
 
 jobs:
+  core-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake -S tests -B build-tests -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build-tests --parallel 2
+      - run: ctest --test-dir build-tests --output-on-failure
   build:
     strategy:
       fail-fast: false

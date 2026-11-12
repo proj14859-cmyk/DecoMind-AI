@@ -1,3 +1,12 @@
+# v0.4.0-alpha — integración experimental
+
+- Contrato tipado y validador determinista; catálogo reducido con confianza explícita.
+- Preview nativo en lotes, aceptar/rechazar/editar, undo agrupado y cancelación por cierre/cambio de nivel.
+- Respaldo con serialización real y escritura verificada; recuperación como copia independiente.
+- HTTPS directo OpenAI/Groq, claves de sesión enmascaradas, modo automático/offline veraz y migración no destructiva.
+- Parser JSONC, índice de patrones originales y referencias en historial.
+- Pruebas de núcleo y CI Windows/Android32/Android64. Aceptación runtime Android y persistencia protegida pendientes.
+
 # Registro de Cambios (Changelog) - DecoMind AI
 
 Todas las modificaciones notables realizadas en este proyecto están documentadas en este archivo.

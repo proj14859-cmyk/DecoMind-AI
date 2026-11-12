@@ -1,3 +1,7 @@
+> **v0.4.0-alpha — integración experimental del plan v1.1.** Nuevo motor validado con preview, respaldo completo y cliente HTTPS directo OpenAI/Groq. Sin Termux. Claves solo durante la sesión. La aceptación dentro de Android sigue pendiente; no es la implementación completa de todas las fases.
+>
+> Uso y límites actuales: [arquitectura](docs/architecture-v040.md), [configurar API](docs/provider-security.md), [pruebas pendientes](docs/testing-android.md), [plan original](docs/plan-maestro-v1.1.md). Las instrucciones siguientes corresponden al legado v0.3.x cuando mencionan Python/Termux.
+
 # Manual Oficial de DecoMind AI (v0.3.8-alpha)
 
 **DecoMind AI** es un asistente interactivo de inteligencia artificial diseñado de forma nativa para el editor de niveles de **Geometry Dash 2.2081** sobre **Geode SDK v5.11.2**. Permite generar estructuras, construir layouts jugables, añadir decoración, diseñar bloques personalizados, configurar triggers automáticos, crear transiciones, aplicar efectos avanzados y obtener sugerencias de diseño directamente desde una interfaz sci-fi integrada en el editor.

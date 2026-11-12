@@ -1,0 +1,9 @@
+{
+  // Original semantic references; no geometry copied from published levels.
+  "schemaVersion": 1,
+  "examples": [
+    {"id":"decomind-neon", "source":"DecoMind original", "license":"project-original", "tags":["neon","circles","glow"], "pattern":"Masas oscuras, bordes geometricos y glow selectivo; mantener libre la ruta jugable."},
+    {"id":"decomind-space", "source":"DecoMind original", "license":"project-original", "tags":["espac","space","brillante"], "pattern":"Motivos orbitales dispersos y glow pequeno en el fondo sin ocultar inputs."},
+    {"id":"decomind-industrial", "source":"DecoMind original", "license":"project-original", "tags":["tech","industrial","estructura"], "pattern":"Paneles modulares y contornos con variacion de escala y espacio negativo."}
+  ]
+}
